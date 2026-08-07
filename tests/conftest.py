@@ -27,6 +27,31 @@ def sample_pdf(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def dense_text_pdf(tmp_path: Path) -> Path:
+    """A PDF with a real paragraph of text, not one short line per page.
+
+    Separate from `sample_pdf` on purpose: pdf-inspector's `process_pdf`
+    (used by the extraction engine, unlike `inspect()`'s `detect_pdf`) is
+    sensitive to per-page text density - confirmed by direct testing,
+    `sample_pdf`'s one-short-line-per-page content gets flagged as
+    `pages_needing_ocr` and extracts to empty markdown despite pdfplumber
+    reading it back just fine, while this fixture's denser paragraph
+    extracts cleanly at confidence 1.0. Real behavior, not a bug to work
+    around - this fixture exists to test the *working* path; the sparse
+    path is exercised directly against `sample_pdf` in
+    test_engine_pdf_inspector.py.
+    """
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 8, "This is a real paragraph of test content. " * 8)
+
+    path = tmp_path / "dense.pdf"
+    pdf.output(str(path))
+    return path
+
+
+@pytest.fixture
 def sample_docx(tmp_path: Path) -> Path:
     """python-docx doesn't populate Word's cached page-count field (only
     Word itself does, on save) - so this fixture's page_count is expected

@@ -1,4 +1,6 @@
-"""Shared dataclasses. `DocumentInfo` is the result of `dokuma.inspect()`."""
+"""Shared dataclasses. `DocumentInfo` is the result of `dokuma.inspect()`;
+`Region`/`ExtractionResult` are what `Engine.extract()` (structured
+extraction) produces."""
 
 from __future__ import annotations
 
@@ -83,3 +85,40 @@ class DocumentInfo:
         if self.title:
             lines.append(f"  title: {self.title}")
         return "\n".join(lines)
+
+
+@dataclass
+class Region:
+    """One piece of extracted content - a paragraph, a table, eventually a
+    figure/formula. `bbox`/`page`/`order` are `None` when the engine that
+    produced this region can't provide real position data (e.g. an engine
+    that only returns flattened text) - left absent rather than faked."""
+
+    category: str  # "text" | "table" (more categories as engines support them)
+    content: str  # plain text, or HTML for tables
+    bbox: tuple[float, float, float, float] | None = None
+    page: int | None = None
+    order: int | None = None
+
+
+@dataclass
+class ExtractionResult:
+    """What `Engine.extract()` returns - one engine's attempt at pulling
+    structured content out of one document."""
+
+    path: Path
+    format: str
+    engine: str
+    regions: list[Region] = field(default_factory=list)
+    duration_ms: float | None = None
+    error: str | None = None
+
+    @property
+    def text(self) -> str:
+        """Convenience: all text regions, in order, joined."""
+        return "\n\n".join(r.content for r in self.regions if r.category == "text")
+
+    @property
+    def tables(self) -> list[str]:
+        """Convenience: all table regions' HTML content, in order."""
+        return [r.content for r in self.regions if r.category == "table"]
