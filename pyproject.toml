@@ -25,7 +25,10 @@ pdf = [
     "pdf-inspector>=0.2.6",
     "pdfplumber>=0.11",
 ]
-all = ["dokuma[pdf]"]
+docx = ["python-docx>=1.1"]
+xlsx = ["openpyxl>=3.1"]
+# html/markdown need no extra - stdlib only.
+all = ["dokuma[pdf,docx,xlsx]"]
 
 [project.urls]
 Homepage = "https://github.com/engincanvaran/dokuma"
@@ -71,6 +74,10 @@ select = [
 strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = ["openpyxl.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

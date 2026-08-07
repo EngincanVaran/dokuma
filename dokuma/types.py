@@ -29,6 +29,19 @@ class DocumentInfo:
     pages_with_tables: list[int] = field(default_factory=list)
     pages_with_columns: list[int] = field(default_factory=list)
 
+    # DOCX-specific.
+    paragraph_count: int | None = None
+    table_count: int | None = None
+
+    # XLSX-specific.
+    sheet_count: int | None = None
+    sheet_names: list[str] = field(default_factory=list)
+    sheet_dimensions: dict[str, str] = field(default_factory=dict)
+
+    # HTML/Markdown/DOCX - reusable across text-flow formats.
+    heading_count: int | None = None
+    word_count: int | None = None
+
     title: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
     inspection_time_ms: float | None = None
@@ -50,6 +63,12 @@ class DocumentInfo:
             lines.append(f"  type: {self.pdf_type} (confidence {self.confidence:.2f})")
         if self.needs_ocr():
             lines.append(f"  needs OCR: pages {self.pages_needing_ocr}")
+        if self.paragraph_count is not None:
+            lines.append(f"  paragraphs: {self.paragraph_count}, tables: {self.table_count}")
+        if self.sheet_count is not None:
+            lines.append(f"  sheets: {self.sheet_count} ({', '.join(self.sheet_names)})")
+        if self.heading_count is not None:
+            lines.append(f"  headings: {self.heading_count}, words: {self.word_count}")
         if self.title:
             lines.append(f"  title: {self.title}")
         return "\n".join(lines)

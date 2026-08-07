@@ -1,8 +1,8 @@
 """dokuma - unified structured extraction across document types.
 
 See README.md for the design sketch. `inspect()` (fast metadata: page
-count, size, PDF text/scanned classification) is implemented; structured
-extraction is not yet.
+count, size, format-specific structure) is implemented for PDF, DOCX,
+XLSX, HTML, and Markdown; structured extraction is not yet.
 """
 
 from importlib.metadata import PackageNotFoundError, version

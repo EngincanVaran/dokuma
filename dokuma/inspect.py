@@ -5,10 +5,24 @@ content extraction. Dispatches to a per-format inspector by extension.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from dokuma.detect import UnsupportedFormatError, detect_format
+from dokuma.inspectors.docx import inspect_docx
+from dokuma.inspectors.html import inspect_html
+from dokuma.inspectors.markdown import inspect_markdown
+from dokuma.inspectors.pdf import inspect_pdf
+from dokuma.inspectors.xlsx import inspect_xlsx
 from dokuma.types import DocumentInfo
+
+_INSPECTORS: dict[str, Callable[[Path], DocumentInfo]] = {
+    "pdf": inspect_pdf,
+    "docx": inspect_docx,
+    "xlsx": inspect_xlsx,
+    "html": inspect_html,
+    "markdown": inspect_markdown,
+}
 
 
 def inspect(path: str | Path) -> DocumentInfo:
@@ -17,37 +31,8 @@ def inspect(path: str | Path) -> DocumentInfo:
         raise FileNotFoundError(path)
 
     fmt = detect_format(path)
-    if fmt == "pdf":
-        return _inspect_pdf(path)
-    raise UnsupportedFormatError(f"Inspection not yet implemented for format {fmt!r}")
-
-
-def _inspect_pdf(path: Path) -> DocumentInfo:
-    import pdf_inspector
-    import pdfplumber
-
-    result = pdf_inspector.detect_pdf(str(path))
-
-    metadata: dict[str, str] = {}
     try:
-        with pdfplumber.open(path) as pdf:
-            metadata = {k: str(v) for k, v in (pdf.metadata or {}).items()}
-    except Exception:
-        pass
-
-    return DocumentInfo(
-        path=path,
-        format="pdf",
-        size_bytes=path.stat().st_size,
-        page_count=result.page_count,
-        pdf_type=result.pdf_type,
-        confidence=result.confidence,
-        is_complex_layout=result.is_complex_layout,
-        has_encoding_issues=result.has_encoding_issues,
-        pages_needing_ocr=list(result.pages_needing_ocr),
-        pages_with_tables=list(result.pages_with_tables),
-        pages_with_columns=list(result.pages_with_columns),
-        title=result.title,
-        metadata=metadata,
-        inspection_time_ms=result.processing_time_ms,
-    )
+        inspector = _INSPECTORS[fmt]
+    except KeyError:
+        raise UnsupportedFormatError(f"Inspection not yet implemented for format {fmt!r}") from None
+    return inspector(path)
