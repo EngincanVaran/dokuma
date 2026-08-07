@@ -22,8 +22,13 @@ be read natively.
 
 **`inspect()` is implemented and tested** - fast metadata (page count, size,
 format-specific structure) across 8 formats, without doing full content
-extraction. Structured *extraction* (the per-region OCR/VLM-tagging vision
-below) is not built yet - see "Design" for current vs. planned architecture.
+extraction.
+
+**`extract()` (structured extraction: text/table regions) is implemented for
+PDF**, with two swappable engines (pdf-inspector, pdfplumber) - see "Using
+the extraction engines" below. Other formats' extraction engines, and the
+full per-region OCR/VLM-tagging vision, are not built yet - see "Design" for
+current vs. planned architecture.
 
 ## Supported formats
 
@@ -83,6 +88,60 @@ report.pdf (pdf)
 if info.needs_ocr():
     print(f"Pages needing OCR: {info.pages_needing_ocr}")
 ```
+
+## Using the extraction engines
+
+`extract()` goes further than `inspect()` - instead of just metadata, it
+returns `Region`s (text/table pieces of the document, in order). PDF has
+**two swappable engines** with genuinely different capabilities, which is
+the whole reason `Engine` is a class hierarchy rather than plain functions.
+
+```python
+import dokuma
+
+result = dokuma.extract("quarterly.pdf")   # default: PdfInspectorEngine
+print("engine:", result.engine)
+for region in result.regions:
+    print(f"  [{region.category}] page={region.page} bbox={region.bbox}")
+```
+
+```
+engine: pdf-inspector
+  [text] page=None bbox=None order=0
+  [table] page=None bbox=None order=1
+```
+
+pdf-inspector is fast, but its public API doesn't expose per-region layout -
+`bbox`/`page` come back `None` rather than faked. Pass `engine=` explicitly
+to use pdfplumber instead, which *does* give real position data:
+
+```python
+result = dokuma.extract("quarterly.pdf", engine=dokuma.PdfPlumberEngine())
+for region in result.regions:
+    print(f"  [{region.category}] page={region.page} bbox={region.bbox}")
+
+print(result.tables)  # convenience: every table region's HTML content
+```
+
+```
+  [text] page=1 bbox=(0.0, 0.0, 595.28, 841.89)
+  [table] page=1 bbox=(28.35, 51.02, 566.93, 123.02)
+['<table><tr><td>Quarter</td><td>Revenue</td></tr>...</table>']
+```
+
+**Errors never raise from an engine** - a wrong-format file, a missing path,
+or an internal library crash all come back as `result.error` instead, so
+looping over many files never gets aborted by one bad one:
+
+```python
+result = dokuma.PdfPlumberEngine().extract("report.docx")
+print(result.error)
+# pdfplumber only extracts 'pdf' files, got 'docx' (report.docx)
+```
+
+(The top-level `dokuma.extract()`/`dokuma.inspect()` are the exception -
+those *do* raise on a missing file or an unsupported format, which is the
+right behavior for a single one-off call rather than a batch loop.)
 
 ## The idea
 
@@ -145,25 +204,39 @@ One function per format, dispatched from a single `inspect()` entry point via
 a name -> function table. Adding a format is one more `inspectors/<name>.py`
 plus one dispatch-table entry - nothing else changes.
 
-### Planned: structured extraction (not yet implemented)
+### Implemented: structured extraction (PDF only so far)
 
 ```
 dokuma/
-  regions/
-    pdf.py           # per-region extraction for PDF (text/table/image regions)
-    docx.py
-    xlsx.py
-    email.py
-  ocr/
-    route.py          # decides which regions need OCR/VLM, and which backend
-  merge.py          # stitches per-region results back into one document, reading order preserved
+  types.py                # Region, ExtractionResult - the shared result shape
+  extract.py                 # extract(path, engine=None) -> ExtractionResult, dispatches by format
+  engines/
+    base.py                    # Engine (ABC): _extract() + format check/timing/error isolation
+    pdf_inspector.py             # PdfInspectorEngine - fast, no bbox/page data
+    pdf_plumber.py                 # PdfPlumberEngine - real bbox/page data, slower
 ```
 
-The planned pattern: a small `Engine` interface per source library/format -
-extended from "one full-document extraction per library" to "one extraction
-per region, mixed across libraries as needed," with multiple swappable
-engines per format once that's real (e.g. pdf-inspector vs. pdfplumber vs.
-a future OCR/VLM engine).
+`Engine` is a class hierarchy on purpose, unlike `inspectors/`: multiple
+engines can exist per format with genuinely different capabilities (see
+"Using the extraction engines" above), and engines may carry real config
+later (API keys, model choice, confidence thresholds) - a shared interface
+enforced structurally earns its keep here in a way it wouldn't for a
+handful of stateless functions.
+
+### Planned: more formats/engines, OCR/VLM routing (not yet implemented)
+
+```
+dokuma/
+  engines/
+    docx.py, xlsx.py, email.py    # extraction engines for the other inspect()-only formats
+  ocr/
+    route.py                        # decides which regions need OCR/VLM, and which backend
+  merge.py                      # stitches multi-engine results back into one document, reading order preserved
+```
+
+PDF extraction covers text + tables; images/figures aren't tagged for
+OCR/VLM handling yet, and no other format has an extraction engine (only
+`inspect()`) yet either.
 
 ## License
 
