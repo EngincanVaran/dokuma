@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/dokuma-logo-horizontal.png" alt="dokuma" width="480">
+</p>
+
 # dokuma
 
 *Turkish for "weaving" / "woven fabric".*
