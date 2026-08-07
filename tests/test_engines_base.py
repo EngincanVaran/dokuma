@@ -8,7 +8,7 @@ from dokuma.types import ExtractionResult, Region
 
 class _WorkingEngine(Engine):
     name = "fake-working"
-    format = "fake"
+    format = "csv"
 
     def _extract(self, path: Path) -> ExtractionResult:
         return ExtractionResult(
@@ -21,14 +21,14 @@ class _WorkingEngine(Engine):
 
 class _BrokenEngine(Engine):
     name = "fake-broken"
-    format = "fake"
+    format = "csv"
 
     def _extract(self, _path: Path) -> ExtractionResult:
         raise RuntimeError("simulated engine failure")
 
 
 def test_extract_returns_regions_and_timing(tmp_path: Path) -> None:
-    path = tmp_path / "doc.fake"
+    path = tmp_path / "doc.csv"
     path.write_text("irrelevant")
 
     result = _WorkingEngine().extract(path)
@@ -40,7 +40,7 @@ def test_extract_returns_regions_and_timing(tmp_path: Path) -> None:
 
 
 def test_extract_isolates_errors_instead_of_raising(tmp_path: Path) -> None:
-    path = tmp_path / "doc.fake"
+    path = tmp_path / "doc.csv"
     path.write_text("irrelevant")
 
     result = _BrokenEngine().extract(path)
@@ -48,6 +48,30 @@ def test_extract_isolates_errors_instead_of_raising(tmp_path: Path) -> None:
     assert result.error == "RuntimeError: simulated engine failure"
     assert result.regions == []
     assert result.duration_ms is not None and result.duration_ms >= 0
+
+
+def test_extract_rejects_wrong_format_without_raising(tmp_path: Path) -> None:
+    # _WorkingEngine only claims to handle "csv" - hand it a .pdf instead.
+    path = tmp_path / "doc.pdf"
+    path.write_text("irrelevant")
+
+    result = _WorkingEngine().extract(path)
+
+    assert result.error is not None
+    assert "csv" in result.error
+    assert "pdf" in result.error
+    assert result.format == "pdf"  # reports the *detected* format, not the engine's
+    assert result.regions == []
+
+
+def test_extract_unrecognized_extension_is_a_graceful_error(tmp_path: Path) -> None:
+    path = tmp_path / "doc.exe"
+    path.write_text("irrelevant")
+
+    result = _WorkingEngine().extract(path)
+
+    assert result.error is not None
+    assert result.format == "unknown"
 
 
 def test_extraction_result_text_and_tables_properties() -> None:

@@ -14,6 +14,7 @@ import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from dokuma.detect import UnsupportedFormatError, detect_format
 from dokuma.types import ExtractionResult
 
 
@@ -25,10 +26,40 @@ class Engine(ABC):
     def _extract(self, path: Path) -> ExtractionResult: ...
 
     def extract(self, path: Path) -> ExtractionResult:
-        """Wraps `_extract` with timing + error isolation - a crash on one
-        document is captured as `ExtractionResult.error`, never raised, so
-        one bad file never aborts a batch of many."""
+        """Wraps `_extract` with format validation + timing + error
+        isolation. Never raises - a wrong-format file for this engine, a
+        bad path, or an internal crash are all captured as
+        `ExtractionResult.error` instead, so one bad file never aborts a
+        batch of many. (Contrast with the top-level `dokuma.extract()`,
+        which *does* raise on a missing file or an unsupported format -
+        reasonable for a single one-off call; not what you want when
+        looping over hundreds of files with one engine.)
+        """
         start = time.perf_counter()
+
+        try:
+            detected_format = detect_format(path)
+        except UnsupportedFormatError as exc:
+            return ExtractionResult(
+                path=path,
+                format="unknown",
+                engine=self.name,
+                duration_ms=(time.perf_counter() - start) * 1000,
+                error=str(exc),
+            )
+
+        if detected_format != self.format:
+            return ExtractionResult(
+                path=path,
+                format=detected_format,
+                engine=self.name,
+                duration_ms=(time.perf_counter() - start) * 1000,
+                error=(
+                    f"{self.name} only extracts {self.format!r} files, "
+                    f"got {detected_format!r} ({path.name})"
+                ),
+            )
+
         try:
             result = self._extract(path)
             result.duration_ms = (time.perf_counter() - start) * 1000

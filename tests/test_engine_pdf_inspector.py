@@ -58,3 +58,12 @@ def test_pdf_inspector_engine_on_sparse_pages_extracts_nothing(sample_pdf: Path)
     assert result.error is None  # doesn't crash - just extracts nothing useful
     assert result.regions == []
     assert result.text == ""
+
+
+def test_pdf_inspector_engine_rejects_non_pdf_file(sample_docx: Path) -> None:
+    result = PdfInspectorEngine().extract(sample_docx)
+
+    assert result.error is not None
+    assert "pdf" in result.error
+    assert "docx" in result.error
+    assert result.regions == []

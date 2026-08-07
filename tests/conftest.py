@@ -52,6 +52,28 @@ def dense_text_pdf(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def table_pdf(tmp_path: Path) -> Path:
+    """A PDF with a real paragraph plus a real table, for engines (like
+    pdfplumber) that detect table structure rather than just reading a
+    pre-existing markdown pipe-table."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 8, "Intro paragraph before the table.")
+    with pdf.table() as table:
+        row = table.row()
+        row.cell("Name")
+        row.cell("Value")
+        row = table.row()
+        row.cell("widgets")
+        row.cell("42")
+
+    path = tmp_path / "table.pdf"
+    pdf.output(str(path))
+    return path
+
+
+@pytest.fixture
 def sample_docx(tmp_path: Path) -> Path:
     """python-docx doesn't populate Word's cached page-count field (only
     Word itself does, on save) - so this fixture's page_count is expected
