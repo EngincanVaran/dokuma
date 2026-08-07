@@ -1,14 +1,15 @@
 # Contributing
 
-`dokuma` is at the concept stage (see `README.md`) - the most useful
-contribution right now is design feedback on the sketch, not code.
-
 ## Dev setup
 
 ```bash
-uv sync --group dev
+uv sync --all-extras --group dev
 uv run pre-commit install
 ```
+
+Format support is split into extras (`pdf`, `docx`, ...) so downstream users
+only install what they need - `--all-extras` pulls in everything for local
+dev/testing.
 
 ## Before committing
 

@@ -20,6 +20,13 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+pdf = [
+    "pdf-inspector>=0.2.6",
+    "pdfplumber>=0.11",
+]
+all = ["dokuma[pdf]"]
+
 [project.urls]
 Homepage = "https://github.com/engincanvaran/dokuma"
 Repository = "https://github.com/engincanvaran/dokuma"
@@ -33,6 +40,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pre-commit>=3.8",
+    "fpdf2>=2.7",
 ]
 
 [tool.ruff]

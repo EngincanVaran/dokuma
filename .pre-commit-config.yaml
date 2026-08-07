@@ -26,7 +26,9 @@ repos:
     rev: v1.14.1
     hooks:
       - id: mypy
-        additional_dependencies: []
+        additional_dependencies:
+          - pdf-inspector>=0.2.6
+          - pdfplumber>=0.11
         pass_filenames: false
         args: [--strict, dokuma]
 
