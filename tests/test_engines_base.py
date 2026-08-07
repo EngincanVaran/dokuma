@@ -27,6 +27,21 @@ class _BrokenEngine(Engine):
         raise RuntimeError("simulated engine failure")
 
 
+def test_extract_accepts_a_plain_string_path(tmp_path: Path) -> None:
+    # Real bug, caught by hand-testing the README example: extract()'s type
+    # hint said Path but never normalized a str, so calling it directly
+    # (not via dokuma.extract(), which does normalize) crashed with
+    # AttributeError - violating the "never raises" contract in this
+    # method's own docstring.
+    path = tmp_path / "doc.csv"
+    path.write_text("irrelevant")
+
+    result = _WorkingEngine().extract(str(path))
+
+    assert result.error is None
+    assert result.regions[0].content == "hello"
+
+
 def test_extract_returns_regions_and_timing(tmp_path: Path) -> None:
     path = tmp_path / "doc.csv"
     path.write_text("irrelevant")

@@ -25,7 +25,7 @@ class Engine(ABC):
     @abstractmethod
     def _extract(self, path: Path) -> ExtractionResult: ...
 
-    def extract(self, path: Path) -> ExtractionResult:
+    def extract(self, path: str | Path) -> ExtractionResult:
         """Wraps `_extract` with format validation + timing + error
         isolation. Never raises - a wrong-format file for this engine, a
         bad path, or an internal crash are all captured as
@@ -36,6 +36,7 @@ class Engine(ABC):
         looping over hundreds of files with one engine.)
         """
         start = time.perf_counter()
+        path = Path(path)
 
         try:
             detected_format = detect_format(path)
