@@ -2,7 +2,8 @@
 
 See README.md for the design sketch. `inspect()` (fast metadata: page
 count, size, format-specific structure) is implemented for PDF, DOCX,
-XLSX, HTML, and Markdown; structured extraction is not yet.
+XLSX, legacy XLS, HTML, Markdown, CSV/TSV, and email (.eml); structured
+extraction is not yet.
 """
 
 from importlib.metadata import PackageNotFoundError, version

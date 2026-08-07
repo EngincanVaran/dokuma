@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from email.message import EmailMessage
 from pathlib import Path
 
 import docx
 import openpyxl
 import pytest
+import xlwt
 from fpdf import FPDF
 
 
@@ -100,4 +102,51 @@ Even more text.
 """
     path = tmp_path / "sample.md"
     path.write_text(text, encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def sample_csv(tmp_path: Path) -> Path:
+    text = "name,value,note\nwidgets,42,in stock\ngadgets,7,backordered\n"
+    path = tmp_path / "sample.csv"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def sample_tsv(tmp_path: Path) -> Path:
+    text = "name\tvalue\tnote\nwidgets\t42\tin stock\ngadgets\t7\tbackordered\n"
+    path = tmp_path / "sample.tsv"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def sample_xls(tmp_path: Path) -> Path:
+    workbook = xlwt.Workbook()
+    sheet1 = workbook.add_sheet("Data")
+    sheet1.write(0, 0, "Name")
+    sheet1.write(0, 1, "Value")
+    sheet1.write(1, 0, "widgets")
+    sheet1.write(1, 1, 42)
+    workbook.add_sheet("Notes")
+
+    path = tmp_path / "sample.xls"
+    workbook.save(str(path))
+    return path
+
+
+@pytest.fixture
+def sample_eml(tmp_path: Path) -> Path:
+    message = EmailMessage()
+    message["From"] = "sender@example.com"
+    message["To"] = "recipient@example.com"
+    message["Subject"] = "Dokuma Test Email"
+    message.set_content("This is the body of the test email, with a few words in it.")
+    message.add_attachment(
+        b"fake pdf bytes", maintype="application", subtype="pdf", filename="report.pdf"
+    )
+
+    path = tmp_path / "sample.eml"
+    path.write_bytes(bytes(message))
     return path

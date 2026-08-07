@@ -42,6 +42,13 @@ class DocumentInfo:
     heading_count: int | None = None
     word_count: int | None = None
 
+    # CSV/TSV-specific.
+    row_count: int | None = None
+    column_count: int | None = None
+
+    # Email-specific.
+    attachment_count: int | None = None
+
     title: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
     inspection_time_ms: float | None = None
@@ -69,6 +76,10 @@ class DocumentInfo:
             lines.append(f"  sheets: {self.sheet_count} ({', '.join(self.sheet_names)})")
         if self.heading_count is not None:
             lines.append(f"  headings: {self.heading_count}, words: {self.word_count}")
+        if self.row_count is not None:
+            lines.append(f"  rows: {self.row_count}, columns: {self.column_count}")
+        if self.attachment_count is not None:
+            lines.append(f"  attachments: {self.attachment_count}")
         if self.title:
             lines.append(f"  title: {self.title}")
         return "\n".join(lines)

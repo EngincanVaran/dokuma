@@ -9,10 +9,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 from dokuma.detect import UnsupportedFormatError, detect_format
+from dokuma.inspectors.csv import inspect_csv
 from dokuma.inspectors.docx import inspect_docx
+from dokuma.inspectors.email_ import inspect_email
 from dokuma.inspectors.html import inspect_html
 from dokuma.inspectors.markdown import inspect_markdown
 from dokuma.inspectors.pdf import inspect_pdf
+from dokuma.inspectors.xls import inspect_xls
 from dokuma.inspectors.xlsx import inspect_xlsx
 from dokuma.types import DocumentInfo
 
@@ -20,8 +23,11 @@ _INSPECTORS: dict[str, Callable[[Path], DocumentInfo]] = {
     "pdf": inspect_pdf,
     "docx": inspect_docx,
     "xlsx": inspect_xlsx,
+    "xls": inspect_xls,
     "html": inspect_html,
     "markdown": inspect_markdown,
+    "csv": inspect_csv,
+    "email": inspect_email,
 }
 
 

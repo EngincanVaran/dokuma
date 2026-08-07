@@ -10,11 +10,14 @@ _EXTENSION_MAP: dict[str, str] = {
     ".pdf": "pdf",
     ".docx": "docx",
     ".xlsx": "xlsx",
+    ".xls": "xls",
     ".eml": "email",
     ".html": "html",
     ".htm": "html",
     ".md": "markdown",
     ".markdown": "markdown",
+    ".csv": "csv",
+    ".tsv": "csv",
 }
 
 
