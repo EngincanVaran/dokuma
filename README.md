@@ -24,11 +24,11 @@ be read natively.
 format-specific structure) across 8 formats, without doing full content
 extraction.
 
-**`extract()` (structured extraction: text/table regions) is implemented for
-PDF**, with two swappable engines (pdf-inspector, pdfplumber) - see "Using
-the extraction engines" below. Other formats' extraction engines, and the
-full per-region OCR/VLM-tagging vision, are not built yet - see "Design" for
-current vs. planned architecture.
+**`extract()` (structured extraction: text/table/heading regions) is
+implemented for PDF** (two swappable engines: pdf-inspector, pdfplumber)**,
+DOCX, XLSX, HTML, and Markdown** - see "Using the extraction engines" below.
+XLS/CSV/email extraction engines, and the full per-region OCR/VLM-tagging
+vision, are not built yet - see "Design" for current vs. planned architecture.
 
 ## Supported formats
 
@@ -67,6 +67,9 @@ pip install "dokuma[all]"              # everything
 ```
 
 HTML, Markdown, CSV/TSV, and email need no extra - stdlib only.
+`pip install "dokuma[pandas]"` adds `ExtractionResult.tables_as_dataframes()`
+- kept separate from the format extras above since it's an output-conversion
+nicety, not document-format support.
 
 ## Quick start
 
@@ -143,6 +146,51 @@ print(result.error)
 those *do* raise on a missing file or an unsupported format, which is the
 right behavior for a single one-off call rather than a batch loop.)
 
+## Configuring extraction output
+
+`ExtractConfig` is the first config object - one real knob so far
+(`table_format`), not a placeholder surface. It controls what `.tables`
+returns; regions always store tables as HTML internally regardless:
+
+```python
+from dokuma.config import ExtractConfig
+
+result = dokuma.extract(
+    "quarterly.pdf",
+    engine=dokuma.PdfPlumberEngine(),
+    config=ExtractConfig(table_format="markdown"),
+)
+print(result.tables[0])
+```
+
+```
+| Name | Value |
+| --- | --- |
+| widgets | 42 |
+```
+
+`table_format` accepts `"html"` (default), `"markdown"`, or `"xml"`. For
+pandas output (needs `dokuma[pandas]`), use `.tables_as_dataframes()`
+directly - a `DataFrame` isn't a string, so it doesn't fit the same knob.
+
+Need the whole document as one string instead of separate regions?
+`.to_markdown()` renders every region in order - headings at their real
+level, tables always as markdown tables regardless of `table_format`:
+
+```python
+print(result.to_markdown())
+```
+
+```
+Intro paragraph before the table.
+
+| Name | Value |
+| --- | --- |
+| widgets | 42 |
+
+Closing paragraph after the table.
+```
+
 ## The idea
 
 Real documents are rarely one content type. A single page can carry prose,
@@ -204,16 +252,19 @@ One function per format, dispatched from a single `inspect()` entry point via
 a name -> function table. Adding a format is one more `inspectors/<name>.py`
 plus one dispatch-table entry - nothing else changes.
 
-### Implemented: structured extraction (PDF only so far)
+### Implemented: structured extraction
 
 ```
 dokuma/
   types.py                # Region, ExtractionResult - the shared result shape
-  extract.py                 # extract(path, engine=None) -> ExtractionResult, dispatches by format
+  config.py                 # ExtractConfig - table_format so far
+  tables.py                   # HTML <-> markdown/xml/dataframe table conversion
+  extract.py                    # extract(path, engine=None, config=None) -> ExtractionResult
   engines/
-    base.py                    # Engine (ABC): _extract() + format check/timing/error isolation
-    pdf_inspector.py             # PdfInspectorEngine - fast, no bbox/page data
-    pdf_plumber.py                 # PdfPlumberEngine - real bbox/page data, slower
+    base.py                       # Engine (ABC): _extract() + format check/timing/error isolation
+    pdf_inspector.py                # PdfInspectorEngine - fast, no bbox/page data
+    pdf_plumber.py                    # PdfPlumberEngine - real bbox/page data, slower
+    docx.py, xlsx.py, html.py, markdown.py   # one engine each, real document order verified per-engine
 ```
 
 `Engine` is a class hierarchy on purpose, unlike `inspectors/`: multiple
@@ -223,20 +274,20 @@ later (API keys, model choice, confidence thresholds) - a shared interface
 enforced structurally earns its keep here in a way it wouldn't for a
 handful of stateless functions.
 
-### Planned: more formats/engines, OCR/VLM routing (not yet implemented)
+### Planned: XLS/CSV/email extraction, OCR/VLM routing (not yet implemented)
 
 ```
 dokuma/
   engines/
-    docx.py, xlsx.py, email.py    # extraction engines for the other inspect()-only formats
+    xls.py, csv.py, email.py    # extraction engines for the remaining inspect()-only formats
   ocr/
-    route.py                        # decides which regions need OCR/VLM, and which backend
-  merge.py                      # stitches multi-engine results back into one document, reading order preserved
+    route.py                      # decides which regions need OCR/VLM, and which backend
+  merge.py                    # stitches multi-engine results back into one document, reading order preserved
 ```
 
-PDF extraction covers text + tables; images/figures aren't tagged for
-OCR/VLM handling yet, and no other format has an extraction engine (only
-`inspect()`) yet either.
+Current extraction covers text/table/heading regions; images/figures aren't
+tagged for OCR/VLM handling yet, and legacy XLS/CSV/email still only have
+`inspect()`, not `extract()`.
 
 ## License
 
