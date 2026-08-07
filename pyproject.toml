@@ -1,0 +1,83 @@
+[project]
+name = "dokuma"
+dynamic = ["version"]
+description = "Extract structured content from any document type - PDF, DOCX, XLSX, email, HTML - into one unified schema, with automatic per-region OCR/VLM tagging."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "Engincan Varan" }]
+keywords = ["document-parsing", "pdf", "ocr", "rag", "extraction"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/engincanvaran/dokuma"
+Repository = "https://github.com/engincanvaran/dokuma"
+Issues = "https://github.com/engincanvaran/dokuma/issues"
+Changelog = "https://github.com/engincanvaran/dokuma/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pre-commit>=3.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "SIM", # simplify
+    "PTH", # use pathlib over os.path
+    "RUF", # ruff-specific
+    "N",   # pep8-naming
+    "ARG", # unused arguments
+    "T20", # no print() - use logging in library code
+    "ERA", # no commented-out code
+]
+
+[tool.mypy]
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=dokuma --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["dokuma"]
+branch = true
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dokuma"]
