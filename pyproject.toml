@@ -5,7 +5,10 @@ description = "Extract structured content from any document type - PDF, DOCX, XL
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
-authors = [{ name = "Engincan Varan" }]
+authors = [
+    { name = "Engincan Varan" },
+    { name = "Claude", email = "noreply@anthropic.com" },
+]
 keywords = ["document-parsing", "pdf", "ocr", "rag", "extraction"]
 classifiers = [
     "Development Status :: 1 - Planning",
