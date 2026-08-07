@@ -99,7 +99,7 @@ the whole reason `Engine` is a class hierarchy rather than plain functions.
 ```python
 import dokuma
 
-result = dokuma.extract("quarterly.pdf")   # default: PdfInspectorEngine
+result = dokuma.extract("quarterly.pdf")  # default: PdfInspectorEngine
 print("engine:", result.engine)
 for region in result.regions:
     print(f"  [{region.category}] page={region.page} bbox={region.bbox}")

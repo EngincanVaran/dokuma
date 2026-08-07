@@ -94,7 +94,7 @@ class Region:
     produced this region can't provide real position data (e.g. an engine
     that only returns flattened text) - left absent rather than faked."""
 
-    category: str  # "text" | "table" (more categories as engines support them)
+    category: str  # "text" | "table" | "heading" (more categories as engines support them)
     content: str  # plain text, or HTML for tables
     bbox: tuple[float, float, float, float] | None = None
     page: int | None = None
@@ -115,8 +115,8 @@ class ExtractionResult:
 
     @property
     def text(self) -> str:
-        """Convenience: all text regions, in order, joined."""
-        return "\n\n".join(r.content for r in self.regions if r.category == "text")
+        """Convenience: all text/heading regions, in order, joined."""
+        return "\n\n".join(r.content for r in self.regions if r.category in ("text", "heading"))
 
     @property
     def tables(self) -> list[str]:

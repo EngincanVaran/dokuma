@@ -27,7 +27,15 @@ def test_extract_missing_file_raises() -> None:
         dokuma.extract("/no/such/file.pdf")
 
 
-def test_extract_unsupported_format_raises(sample_docx: Path) -> None:
-    # docx inspection exists but no extraction engine is wired up yet.
+def test_extract_docx_dispatches_to_default_engine(sample_docx: Path) -> None:
+    result = dokuma.extract(sample_docx)
+
+    assert result.engine == "python-docx"
+    assert result.error is None
+    assert "Introduction" in result.text
+
+
+def test_extract_unsupported_format_raises(sample_xlsx: Path) -> None:
+    # xlsx inspection exists but no extraction engine is wired up yet.
     with pytest.raises(UnsupportedFormatError):
-        dokuma.extract(sample_docx)
+        dokuma.extract(sample_xlsx)

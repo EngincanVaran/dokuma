@@ -1,0 +1,108 @@
+"""DOCX extraction via python-docx.
+
+Walks the document body directly (`document.element.body.iterchildren()`)
+rather than using python-docx's `.paragraphs`/`.tables`, which are two
+separate flat lists - not interleaved in real document order. Verified
+directly: the body-walk approach correctly reproduces heading/paragraph/
+table order; `.paragraphs`/`.tables` alone would silently lose it.
+
+No bbox/page: DOCX is a flow document, not fixed-position - there's no
+reliable per-paragraph page number without actually rendering the document
+(Word computes pages at render/print time, same caveat as
+`inspectors/docx.py`'s cached page count). `bbox`/`page` stay `None` on
+every region, same honesty as PdfInspectorEngine.
+
+Consecutive paragraphs are batched into one "text" region (split at
+headings/tables), matching the PDF engines' "one region per contiguous
+chunk" pattern rather than one region per paragraph. Headings get their own
+"heading" category - real, free structure DOCX gives us that PDF text
+extraction can't reliably infer.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from dokuma.engines.base import Engine
+from dokuma.types import ExtractionResult, Region
+
+if TYPE_CHECKING:
+    from docx.document import Document
+
+
+def _table_to_html(table: object) -> str:
+    from docx.table import Table
+
+    assert isinstance(table, Table)
+    body = []
+    for row in table.rows:
+        cells = "".join(f"<td>{cell.text}</td>" for cell in row.cells)
+        body.append(f"<tr>{cells}</tr>")
+    return "<table>" + "".join(body) + "</table>"
+
+
+def _iter_body_elements(document: Document) -> Iterator[object]:
+    """Yields Paragraph/Table objects in true document order."""
+    from docx.oxml.ns import qn
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in document.element.body.iterchildren():
+        if child.tag == qn("w:p"):
+            yield Paragraph(child, document)
+        elif child.tag == qn("w:tbl"):
+            yield Table(child, document)
+
+
+class DocxEngine(Engine):
+    name = "python-docx"
+    format = "docx"
+
+    def _extract(self, path: Path) -> ExtractionResult:
+        import docx
+        from docx.table import Table
+        from docx.text.paragraph import Paragraph
+
+        document = docx.Document(str(path))
+
+        regions: list[Region] = []
+        order = 0
+        text_buffer: list[str] = []
+
+        def flush_text() -> None:
+            nonlocal order
+            text = "\n".join(text_buffer).strip()
+            if text:
+                regions.append(Region(category="text", content=text, order=order))
+                order += 1
+            text_buffer.clear()
+
+        for element in _iter_body_elements(document):
+            if isinstance(element, Paragraph):
+                text = element.text.strip()
+                if not text:
+                    continue
+                style_name = element.style.name if element.style is not None else ""
+                if style_name.startswith("Heading"):
+                    flush_text()
+                    regions.append(Region(category="heading", content=text, order=order))
+                    order += 1
+                else:
+                    text_buffer.append(text)
+            elif isinstance(element, Table):
+                flush_text()
+                regions.append(
+                    Region(category="table", content=_table_to_html(element), order=order)
+                )
+                order += 1
+
+        flush_text()
+
+        return ExtractionResult(
+            path=path,
+            format=self.format,
+            engine=self.name,
+            regions=regions,
+        )
