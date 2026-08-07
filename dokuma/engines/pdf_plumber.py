@@ -3,13 +3,17 @@
 Unlike PdfInspectorEngine, this gives *real* position data: each table
 region's bbox comes from pdfplumber's own table detection
 (`page.find_tables()`), and each text region carries a real page number and
-a page-size bbox - not `None` placeholders.
+a real bbox for the text slice it covers - not `None` placeholders.
 
-Known, deliberate overlap: a page's text region is NOT stripped of table
-content - pdfplumber's `extract_text()` includes everything on the page,
-tables included, so a page's text region and its table region(s) share some
-text. A cheap whole-page `extract_text()` call, not a more complex
-"text outside detected table areas" pass - a real tradeoff, not a bug.
+True reading order within a page, not just "text then tables": tables are
+sorted by vertical position, and each page's text is sliced *between* table
+boundaries via `page.crop()` (text above the first table, between each pair,
+after the last one), so a table sitting above some paragraph is correctly
+emitted before that paragraph's text region. Verified directly before
+writing this: `page.crop((0, 0, width, table.top)).extract_text()` and the
+same for the region below a table's bottom correctly isolate the text on
+each side, not the whole page. An earlier version of this engine emitted
+"all page text, then all tables" regardless of real position - fixed.
 """
 
 from __future__ import annotations
@@ -39,21 +43,25 @@ class PdfPlumberEngine(Engine):
         order = 0
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, start=1):
-                text = page.extract_text()
-                if text:
-                    regions.append(
-                        Region(
-                            category="text",
-                            content=text,
-                            bbox=(0.0, 0.0, float(page.width), float(page.height)),
-                            page=page_num,
-                            order=order,
-                        )
-                    )
-                    order += 1
+                tables = sorted(page.find_tables(), key=lambda t: t.bbox[1])
+                cursor = 0.0
 
-                for table in page.find_tables():
+                for table in tables:
                     x0, top, x1, bottom = table.bbox
+                    if top > cursor:
+                        text_slice = page.crop((0, cursor, page.width, top)).extract_text()
+                        if text_slice:
+                            regions.append(
+                                Region(
+                                    category="text",
+                                    content=text_slice,
+                                    bbox=(0.0, cursor, float(page.width), float(top)),
+                                    page=page_num,
+                                    order=order,
+                                )
+                            )
+                            order += 1
+
                     regions.append(
                         Region(
                             category="table",
@@ -64,6 +72,21 @@ class PdfPlumberEngine(Engine):
                         )
                     )
                     order += 1
+                    cursor = max(cursor, bottom)
+
+                if cursor < page.height:
+                    tail_text = page.crop((0, cursor, page.width, page.height)).extract_text()
+                    if tail_text:
+                        regions.append(
+                            Region(
+                                category="text",
+                                content=tail_text,
+                                bbox=(0.0, cursor, float(page.width), float(page.height)),
+                                page=page_num,
+                                order=order,
+                            )
+                        )
+                        order += 1
 
         return ExtractionResult(
             path=path,

@@ -52,7 +52,15 @@ def test_extract_html_dispatches_to_default_engine(sample_html: Path) -> None:
     assert "Welcome" in result.text
 
 
-def test_extract_unsupported_format_raises(sample_markdown: Path) -> None:
-    # markdown inspection exists but no extraction engine is wired up yet.
+def test_extract_markdown_dispatches_to_default_engine(sample_markdown: Path) -> None:
+    result = dokuma.extract(sample_markdown)
+
+    assert result.engine == "markdown"
+    assert result.error is None
+    assert "Dokuma Test Doc" in result.text
+
+
+def test_extract_unsupported_format_raises(sample_csv: Path) -> None:
+    # csv inspection exists but no extraction engine is wired up yet.
     with pytest.raises(UnsupportedFormatError):
-        dokuma.extract(sample_markdown)
+        dokuma.extract(sample_csv)

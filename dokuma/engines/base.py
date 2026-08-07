@@ -14,6 +14,7 @@ import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.detect import UnsupportedFormatError, detect_format
 from dokuma.types import ExtractionResult
 
@@ -25,7 +26,7 @@ class Engine(ABC):
     @abstractmethod
     def _extract(self, path: Path) -> ExtractionResult: ...
 
-    def extract(self, path: str | Path) -> ExtractionResult:
+    def extract(self, path: str | Path, config: ExtractConfig | None = None) -> ExtractionResult:
         """Wraps `_extract` with format validation + timing + error
         isolation. Never raises - a wrong-format file for this engine, a
         bad path, or an internal crash are all captured as
@@ -34,9 +35,15 @@ class Engine(ABC):
         which *does* raise on a missing file or an unsupported format -
         reasonable for a single one-off call; not what you want when
         looping over hundreds of files with one engine.)
+
+        `config` only affects presentation (e.g. `table_format`) - it's
+        applied to the result after `_extract()` runs, not passed into it,
+        since regions are always built as the canonical HTML-for-tables
+        shape regardless of what a caller eventually wants to read them as.
         """
         start = time.perf_counter()
         path = Path(path)
+        config = config or ExtractConfig()
 
         try:
             detected_format = detect_format(path)
@@ -47,6 +54,7 @@ class Engine(ABC):
                 engine=self.name,
                 duration_ms=(time.perf_counter() - start) * 1000,
                 error=str(exc),
+                table_format=config.table_format,
             )
 
         if detected_format != self.format:
@@ -59,11 +67,13 @@ class Engine(ABC):
                     f"{self.name} only extracts {self.format!r} files, "
                     f"got {detected_format!r} ({path.name})"
                 ),
+                table_format=config.table_format,
             )
 
         try:
             result = self._extract(path)
             result.duration_ms = (time.perf_counter() - start) * 1000
+            result.table_format = config.table_format
             return result
         except Exception as exc:  # deliberately broad - see docstring
             return ExtractionResult(
@@ -72,4 +82,5 @@ class Engine(ABC):
                 engine=self.name,
                 duration_ms=(time.perf_counter() - start) * 1000,
                 error=f"{type(exc).__name__}: {exc}",
+                table_format=config.table_format,
             )

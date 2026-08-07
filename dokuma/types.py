@@ -6,6 +6,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @dataclass
@@ -92,19 +96,30 @@ class Region:
     """One piece of extracted content - a paragraph, a table, eventually a
     figure/formula. `bbox`/`page`/`order` are `None` when the engine that
     produced this region can't provide real position data (e.g. an engine
-    that only returns flattened text) - left absent rather than faked."""
+    that only returns flattened text) - left absent rather than faked.
+    `level` (1-6) is set for `category="heading"` regions when the source
+    format actually carries a heading level (DOCX style, HTML h1-h6,
+    Markdown #-count) - `None` otherwise, never guessed."""
 
     category: str  # "text" | "table" | "heading" (more categories as engines support them)
     content: str  # plain text, or HTML for tables
     bbox: tuple[float, float, float, float] | None = None
     page: int | None = None
     order: int | None = None
+    level: int | None = None
 
 
 @dataclass
 class ExtractionResult:
     """What `Engine.extract()` returns - one engine's attempt at pulling
-    structured content out of one document."""
+    structured content out of one document.
+
+    `table_format` controls what `.tables` returns ("html" | "markdown" |
+    "xml") - set via `ExtractConfig.table_format` passed to `extract()`,
+    not meant to be set directly. Regions always store table content as
+    HTML internally regardless of this setting - it's a presentation
+    conversion applied on read, not a different extraction.
+    """
 
     path: Path
     format: str
@@ -112,6 +127,7 @@ class ExtractionResult:
     regions: list[Region] = field(default_factory=list)
     duration_ms: float | None = None
     error: str | None = None
+    table_format: str = "html"
 
     @property
     def text(self) -> str:
@@ -120,5 +136,36 @@ class ExtractionResult:
 
     @property
     def tables(self) -> list[str]:
-        """Convenience: all table regions' HTML content, in order."""
-        return [r.content for r in self.regions if r.category == "table"]
+        """Convenience: all table regions, in order, converted to
+        `self.table_format` (html/markdown/xml - set via `ExtractConfig`)."""
+        from dokuma.tables import convert_table
+
+        html_tables = (r.content for r in self.regions if r.category == "table")
+        return [convert_table(html, self.table_format) for html in html_tables]
+
+    def tables_as_dataframes(self) -> list[pd.DataFrame]:
+        """Every table region as a `pandas.DataFrame`. Ignores
+        `table_format` - always converts from the underlying HTML, since a
+        DataFrame isn't a string and doesn't fit the same knob. Requires
+        `pip install dokuma[pandas]`."""
+        from dokuma.tables import table_to_dataframe
+
+        return [table_to_dataframe(r.content) for r in self.regions if r.category == "table"]
+
+    def to_markdown(self) -> str:
+        """Renders the whole document - every region, in order - as one
+        markdown string. Tables always render as markdown tables here
+        regardless of `table_format` (this method's whole point is a single
+        markdown view, independent of the per-region-format config)."""
+        from dokuma.tables import table_to_markdown
+
+        parts: list[str] = []
+        for region in self.regions:
+            if region.category == "heading":
+                level = region.level or 1
+                parts.append(f"{'#' * level} {region.content}")
+            elif region.category == "table":
+                parts.append(table_to_markdown(region.content))
+            else:
+                parts.append(region.content)
+        return "\n\n".join(parts)

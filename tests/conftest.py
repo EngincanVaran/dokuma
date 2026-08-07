@@ -74,6 +74,29 @@ def table_pdf(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def text_table_text_pdf(tmp_path: Path) -> Path:
+    """Text both before AND after the table - table_pdf alone can't catch a
+    "text region always comes after tables" bug, since it has no closing
+    text to test against."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 8, "Intro paragraph before the table.")
+    with pdf.table() as table:
+        row = table.row()
+        row.cell("Name")
+        row.cell("Value")
+        row = table.row()
+        row.cell("widgets")
+        row.cell("42")
+    pdf.multi_cell(0, 8, "Closing paragraph after the table.")
+
+    path = tmp_path / "text_table_text.pdf"
+    pdf.output(str(path))
+    return path
+
+
+@pytest.fixture
 def sample_docx(tmp_path: Path) -> Path:
     """python-docx doesn't populate Word's cached page-count field (only
     Word itself does, on save) - so this fixture's page_count is expected
@@ -169,6 +192,25 @@ More words go here, in this second section.
 Even more text.
 """
     path = tmp_path / "sample.md"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def markdown_with_table(tmp_path: Path) -> Path:
+    text = """# Welcome
+
+Intro paragraph.
+
+| Name | Value |
+|---|---|
+| widgets | 42 |
+
+## Section Two
+
+Closing paragraph.
+"""
+    path = tmp_path / "with_table.md"
     path.write_text(text, encoding="utf-8")
     return path
 

@@ -31,6 +31,7 @@ xlsx = [
     "xlrd>=2.0",  # legacy .xls only - xlrd 2.0 dropped .xlsx support
 ]
 # html/markdown/csv/email need no extra - stdlib only.
+pandas = ["pandas>=2.0"]  # only for ExtractionResult.tables_as_dataframes() / table_to_dataframe()
 all = ["dokuma[pdf,docx,xlsx]"]
 
 [project.urls]
@@ -48,6 +49,7 @@ dev = [
     "pre-commit>=3.8",
     "fpdf2>=2.7",
     "xlwt>=1.3",  # legacy .xls writer, for test fixtures only - xlrd only reads
+    "pandas-stubs>=2.0",  # real type stubs for pandas, better than ignore_missing_imports
 ]
 
 [tool.ruff]

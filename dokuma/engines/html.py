@@ -37,6 +37,7 @@ class _RegionParser(HTMLParser):
         self._text_buffer: list[str] = []
         self._in_heading = False
         self._heading_buffer: list[str] = []
+        self._heading_level: int | None = None
         self._in_table = False
         self._table_rows: list[list[str]] = []
         self._current_row: list[str] = []
@@ -65,6 +66,7 @@ class _RegionParser(HTMLParser):
             self.flush_text()
             self._in_heading = True
             self._heading_buffer = []
+            self._heading_level = int(tag[1])
         elif tag in _BLOCK_TAGS:
             self.flush_text()
 
@@ -89,7 +91,12 @@ class _RegionParser(HTMLParser):
             heading_text = _clean(self._heading_buffer)
             if heading_text:
                 self.regions.append(
-                    Region(category="heading", content=heading_text, order=self._order)
+                    Region(
+                        category="heading",
+                        content=heading_text,
+                        order=self._order,
+                        level=self._heading_level,
+                    )
                 )
                 self._order += 1
             self._in_heading = False

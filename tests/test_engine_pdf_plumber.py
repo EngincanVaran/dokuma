@@ -42,3 +42,30 @@ def test_pdf_plumber_engine_regions_are_ordered_by_position(table_pdf: Path) -> 
     categories = [r.category for r in result.regions]
     assert categories == ["text", "table"]
     assert [r.order for r in result.regions] == [0, 1]
+
+
+def test_pdf_plumber_engine_splits_text_around_table_by_real_position(
+    text_table_text_pdf: Path,
+) -> None:
+    # Real bug this locks in: an earlier version emitted "all page text,
+    # then all tables" regardless of visual position, which would have put
+    # BOTH paragraphs in one text region before the table - wrong reading
+    # order whenever a table sits in the middle of a page's content.
+    result = PdfPlumberEngine().extract(text_table_text_pdf)
+
+    categories = [r.category for r in result.regions]
+    assert categories == ["text", "table", "text"]
+
+    before, table, after = result.regions
+    assert "Intro paragraph" in before.content
+    assert "Closing paragraph" not in before.content
+    assert "Closing paragraph" in after.content
+    assert "Intro paragraph" not in after.content
+    # each text slice's bbox is a real, distinct vertical range - not both
+    # sharing the same (0, 0, width, height) whole-page bbox.
+    assert before.bbox is not None
+    assert after.bbox is not None
+    assert table.bbox is not None
+    assert before.bbox != after.bbox
+    assert before.bbox[3] <= table.bbox[1]  # before-text ends at/above table top
+    assert after.bbox[1] >= table.bbox[3]  # after-text starts at/below table bottom

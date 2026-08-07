@@ -43,6 +43,13 @@ def _table_to_html(table: object) -> str:
     return "<table>" + "".join(body) + "</table>"
 
 
+def _heading_level(style_name: str) -> int | None:
+    """ "Heading 1" -> 1, "Heading 2" -> 2, ... "Heading" (no number, some
+    templates) -> None rather than guessing."""
+    suffix = style_name.removeprefix("Heading").strip()
+    return int(suffix) if suffix.isdigit() else None
+
+
 def _iter_body_elements(document: Document) -> Iterator[object]:
     """Yields Paragraph/Table objects in true document order."""
     from docx.oxml.ns import qn
@@ -87,7 +94,14 @@ class DocxEngine(Engine):
                 style_name = element.style.name if element.style is not None else ""
                 if style_name.startswith("Heading"):
                     flush_text()
-                    regions.append(Region(category="heading", content=text, order=order))
+                    regions.append(
+                        Region(
+                            category="heading",
+                            content=text,
+                            order=order,
+                            level=_heading_level(style_name),
+                        )
+                    )
                     order += 1
                 else:
                     text_buffer.append(text)
