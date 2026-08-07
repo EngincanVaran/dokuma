@@ -134,6 +134,27 @@ def sample_html(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def html_with_table(tmp_path: Path) -> Path:
+    html = """<!DOCTYPE html>
+<html>
+<head><title>Report</title></head>
+<body>
+<h1>Welcome</h1>
+<p>Intro paragraph.</p>
+<table>
+<tr><th>Name</th><th>Value</th></tr>
+<tr><td>widgets</td><td>42</td></tr>
+</table>
+<h2>Section Two</h2>
+<p>Closing paragraph.</p>
+</body>
+</html>"""
+    path = tmp_path / "with_table.html"
+    path.write_text(html, encoding="utf-8")
+    return path
+
+
+@pytest.fixture
 def sample_markdown(tmp_path: Path) -> Path:
     text = """# Dokuma Test Doc
 

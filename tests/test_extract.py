@@ -44,7 +44,15 @@ def test_extract_xlsx_dispatches_to_default_engine(sample_xlsx: Path) -> None:
     assert any("widgets" in table for table in result.tables)
 
 
-def test_extract_unsupported_format_raises(sample_html: Path) -> None:
-    # html inspection exists but no extraction engine is wired up yet.
+def test_extract_html_dispatches_to_default_engine(sample_html: Path) -> None:
+    result = dokuma.extract(sample_html)
+
+    assert result.engine == "html.parser"
+    assert result.error is None
+    assert "Welcome" in result.text
+
+
+def test_extract_unsupported_format_raises(sample_markdown: Path) -> None:
+    # markdown inspection exists but no extraction engine is wired up yet.
     with pytest.raises(UnsupportedFormatError):
-        dokuma.extract(sample_html)
+        dokuma.extract(sample_markdown)
