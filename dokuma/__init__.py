@@ -4,8 +4,8 @@ See README.md for the design sketch. `inspect()` (fast metadata: page
 count, size, format-specific structure) is implemented for PDF, DOCX,
 XLSX, legacy XLS, HTML, Markdown, CSV/TSV, and email (.eml). Structured
 `extract()` (text/table regions via a pluggable Engine) is implemented for
-PDF (two swappable engines: pdf-inspector, pdfplumber) and DOCX; more
-formats/engines are next.
+PDF (two swappable engines: pdf-inspector, pdfplumber), DOCX, and XLSX;
+more formats/engines are next.
 """
 
 from importlib.metadata import PackageNotFoundError, version
@@ -15,6 +15,7 @@ from dokuma.engines.base import Engine
 from dokuma.engines.docx import DocxEngine
 from dokuma.engines.pdf_inspector import PdfInspectorEngine
 from dokuma.engines.pdf_plumber import PdfPlumberEngine
+from dokuma.engines.xlsx import XlsxEngine
 from dokuma.extract import extract
 from dokuma.inspect import inspect
 from dokuma.types import DocumentInfo, ExtractionResult, Region
@@ -35,6 +36,7 @@ __all__ = [
     "PdfPlumberEngine",
     "Region",
     "UnsupportedFormatError",
+    "XlsxEngine",
     "detect_format",
     "extract",
     "inspect",

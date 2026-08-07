@@ -12,11 +12,13 @@ from dokuma.detect import UnsupportedFormatError, detect_format
 from dokuma.engines.base import Engine
 from dokuma.engines.docx import DocxEngine
 from dokuma.engines.pdf_inspector import PdfInspectorEngine
+from dokuma.engines.xlsx import XlsxEngine
 from dokuma.types import ExtractionResult
 
 _DEFAULT_ENGINES: dict[str, type[Engine]] = {
     "pdf": PdfInspectorEngine,
     "docx": DocxEngine,
+    "xlsx": XlsxEngine,
 }
 
 
