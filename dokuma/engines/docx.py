@@ -32,6 +32,9 @@ an image-only paragraph has `.text == ""`, so the pre-existing
 via real-document testing (confirmed empirically: zero trace of an
 embedded picture anywhere in extraction output). Images are now found
 before that skip check runs.
+
+`ExtractConfig(extract_images=False)` skips `_paragraph_images()` (and
+its relationship-part lookups) entirely, not just the resulting regions.
 """
 
 from __future__ import annotations
@@ -40,6 +43,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -94,7 +98,7 @@ class DocxEngine(Engine):
     name = "python-docx"
     format = "docx"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, config: ExtractConfig) -> ExtractionResult:
         import docx
         from docx.table import Table
         from docx.text.paragraph import Paragraph
@@ -115,18 +119,19 @@ class DocxEngine(Engine):
 
         for element in _iter_body_elements(document):
             if isinstance(element, Paragraph):
-                for image_bytes, image_format in _paragraph_images(element):
-                    flush_text()
-                    regions.append(
-                        Region(
-                            category="image",
-                            content="",
-                            order=order,
-                            image_bytes=image_bytes,
-                            image_format=image_format,
+                if config.extract_images:
+                    for image_bytes, image_format in _paragraph_images(element):
+                        flush_text()
+                        regions.append(
+                            Region(
+                                category="image",
+                                content="",
+                                order=order,
+                                image_bytes=image_bytes,
+                                image_format=image_format,
+                            )
                         )
-                    )
-                    order += 1
+                        order += 1
 
                 text = element.text.strip()
                 if not text:

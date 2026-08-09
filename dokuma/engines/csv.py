@@ -19,6 +19,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -41,7 +42,7 @@ class CsvEngine(Engine):
     name = "csv"
     format = "csv"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         text = path.read_text(encoding="utf-8", errors="replace")
         is_tsv = path.suffix.lower() == ".tsv"
         delimiter = "\t" if is_tsv else _detect_delimiter(text[:_SAMPLE_CHARS])

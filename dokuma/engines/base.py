@@ -24,7 +24,7 @@ class Engine(ABC):
     format: str
 
     @abstractmethod
-    def _extract(self, path: Path) -> ExtractionResult: ...
+    def _extract(self, path: Path, config: ExtractConfig) -> ExtractionResult: ...
 
     def extract(self, path: str | Path, config: ExtractConfig | None = None) -> ExtractionResult:
         """Wraps `_extract` with format validation + timing + error
@@ -36,10 +36,14 @@ class Engine(ABC):
         reasonable for a single one-off call; not what you want when
         looping over hundreds of files with one engine.)
 
-        `config` only affects presentation (e.g. `table_format`) - it's
-        applied to the result after `_extract()` runs, not passed into it,
-        since regions are always built as the canonical HTML-for-tables
-        shape regardless of what a caller eventually wants to read them as.
+        `config` is used two different ways, deliberately: presentation
+        knobs (`table_format`) are applied to the result after `_extract()`
+        runs, since regions are always built as the canonical
+        HTML-for-tables shape regardless of what a caller eventually wants
+        to read them as - `_extract()` never needs to know about those.
+        Knobs that change what extraction *work* happens (`extract_images`)
+        get passed into `_extract()` itself, so an engine can skip real,
+        avoidable cost rather than doing the work and throwing it away.
         """
         start = time.perf_counter()
         path = Path(path)
@@ -71,7 +75,7 @@ class Engine(ABC):
             )
 
         try:
-            result = self._extract(path)
+            result = self._extract(path, config)
             result.duration_ms = (time.perf_counter() - start) * 1000
             result.table_format = config.table_format
             return result

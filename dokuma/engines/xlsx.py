@@ -38,6 +38,10 @@ undocumented openpyxl API - the only way to read back an existing
 workbook's pictures (`add_image()` and openpyxl's public docs are
 write-oriented) - same class of tradeoff `DocxEngine` accepts reaching
 into `paragraph._element` for the same reason.
+
+`ExtractConfig(extract_images=False)` skips opening the second workbook
+handle entirely - the real, avoidable cost this knob exists for, not just
+the resulting regions.
 """
 
 from __future__ import annotations
@@ -46,6 +50,7 @@ import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -78,17 +83,19 @@ class XlsxEngine(Engine):
     name = "openpyxl"
     format = "xlsx"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, config: ExtractConfig) -> ExtractionResult:
         import openpyxl
 
         workbook = openpyxl.load_workbook(str(path), read_only=True, data_only=True)
-        workbook_with_images = openpyxl.load_workbook(str(path), data_only=True)
+        workbook_with_images = (
+            openpyxl.load_workbook(str(path), data_only=True) if config.extract_images else None
+        )
         try:
             regions: list[Region] = []
             for index, name in enumerate(workbook.sheetnames):
                 sheet = workbook[name]
                 rows = list(sheet.iter_rows())
-                images = _sheet_images(workbook_with_images[name])
+                images = _sheet_images(workbook_with_images[name]) if workbook_with_images else []
                 if not rows and not images:
                     continue
 
@@ -114,7 +121,8 @@ class XlsxEngine(Engine):
                     )
         finally:
             workbook.close()
-            workbook_with_images.close()
+            if workbook_with_images is not None:
+                workbook_with_images.close()
 
         return ExtractionResult(
             path=path,

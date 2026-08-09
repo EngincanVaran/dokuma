@@ -30,6 +30,10 @@ of pdfplumber, confirmed via `importlib.metadata.requires`. The tradeoff:
 output is always a fresh PNG raster at `_IMAGE_RESOLUTION`, never the
 original format/compression - acceptable for "let the caller see the
 picture", not intended as bit-exact original-file recovery.
+
+`ExtractConfig(extract_images=False)` skips `page.images` entirely, not
+just the resulting regions - real savings, since rendering each crop is
+the expensive part of this engine's image support, not free bookkeeping.
 """
 
 from __future__ import annotations
@@ -38,6 +42,7 @@ import io
 from pathlib import Path
 from typing import Any
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -63,7 +68,7 @@ class PdfPlumberEngine(Engine):
     name = "pdfplumber"
     format = "pdf"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, config: ExtractConfig) -> ExtractionResult:
         import pdfplumber
 
         regions: list[Region] = []
@@ -73,10 +78,11 @@ class PdfPlumberEngine(Engine):
                 blocks: list[tuple[str, tuple[float, float, float, float], Any]] = [
                     ("table", t.bbox, t) for t in page.find_tables()
                 ]
-                blocks += [
-                    ("image", (img["x0"], img["top"], img["x1"], img["bottom"]), img)
-                    for img in page.images
-                ]
+                if config.extract_images:
+                    blocks += [
+                        ("image", (img["x0"], img["top"], img["x1"], img["bottom"]), img)
+                        for img in page.images
+                    ]
                 blocks.sort(key=lambda b: b[1][1])  # by top
 
                 cursor = 0.0

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -10,7 +11,7 @@ class _WorkingEngine(Engine):
     name = "fake-working"
     format = "csv"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         return ExtractionResult(
             path=path,
             format=self.format,
@@ -23,7 +24,7 @@ class _BrokenEngine(Engine):
     name = "fake-broken"
     format = "csv"
 
-    def _extract(self, _path: Path) -> ExtractionResult:
+    def _extract(self, _path: Path, _config: ExtractConfig) -> ExtractionResult:
         raise RuntimeError("simulated engine failure")
 
 

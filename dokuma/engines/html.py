@@ -17,6 +17,7 @@ from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -116,7 +117,7 @@ class HtmlEngine(Engine):
     name = "html.parser"
     format = "html"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         parser = _RegionParser()
         parser.feed(path.read_text(encoding="utf-8", errors="replace"))
         parser.flush_text()

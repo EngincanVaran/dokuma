@@ -172,9 +172,10 @@ right behavior for a single one-off call rather than a batch loop.)
 
 ## Configuring extraction output
 
-`ExtractConfig` is the first config object - one real knob so far
-(`table_format`), not a placeholder surface. It controls what `.tables`
-returns; regions always store tables as HTML internally regardless:
+`ExtractConfig` is deliberately minimal - only knobs that something in
+this codebase actually consumes, not a placeholder surface. `table_format`
+controls what `.tables` returns; regions always store tables as HTML
+internally regardless:
 
 ```python
 from dokuma.config import ExtractConfig
@@ -196,6 +197,16 @@ print(result.tables[0])
 `table_format` accepts `"html"` (default), `"markdown"`, or `"xml"`. For
 pandas output (needs `dokuma[pandas]`), use `.tables_as_dataframes()`
 directly - a `DataFrame` isn't a string, so it doesn't fit the same knob.
+
+`extract_images` (default `True`) skips image extraction entirely when set
+`False` - real, avoidable cost, not just fewer results: `PdfPlumberEngine`
+skips rendering each picture's crop, `XlsxEngine` skips opening a second
+full workbook handle just to reach embedded pictures, `DocxEngine` skips
+the relationship-part lookups. Set it if you only care about text/tables:
+
+```python
+result = dokuma.extract("report.xlsx", config=ExtractConfig(extract_images=False))
+```
 
 Need the whole document as one string instead of separate regions?
 `.to_markdown()` renders every region in order - headings at their real
@@ -284,7 +295,7 @@ changes.
 ```
 dokuma/
   types.py                # Region, ExtractionResult - the shared result shape
-  config.py                 # ExtractConfig - table_format so far
+  config.py                 # ExtractConfig - table_format, extract_images so far
   tables.py                   # HTML <-> markdown/xml/dataframe table conversion
   extract.py                    # extract(path, engine=None, config=None) -> ExtractionResult
   engines/

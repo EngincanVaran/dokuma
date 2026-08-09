@@ -23,6 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -39,7 +40,7 @@ class XlsEngine(Engine):
     name = "xlrd"
     format = "xls"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         import xlrd
 
         book = xlrd.open_workbook(str(path))

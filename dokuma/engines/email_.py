@@ -23,6 +23,7 @@ from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -61,7 +62,7 @@ class EmailEngine(Engine):
     name = "email"
     format = "email"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         from email import policy
         from email.parser import BytesParser
 

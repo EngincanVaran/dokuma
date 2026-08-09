@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -70,7 +71,7 @@ class MarkdownEngine(Engine):
     name = "markdown"
     format = "markdown"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         text = path.read_text(encoding="utf-8", errors="replace")
         regions: list[Region] = []
         order = 0

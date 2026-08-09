@@ -37,6 +37,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
@@ -113,7 +114,7 @@ class PdfInspectorEngine(Engine):
     name = "pdf-inspector"
     format = "pdf"
 
-    def _extract(self, path: Path) -> ExtractionResult:
+    def _extract(self, path: Path, _config: ExtractConfig) -> ExtractionResult:
         import pdf_inspector
 
         result = pdf_inspector.process_pdf(str(path))
