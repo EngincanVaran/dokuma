@@ -17,6 +17,21 @@ headings/tables), matching the PDF engines' "one region per contiguous
 chunk" pattern rather than one region per paragraph. Headings get their own
 "heading" category - real, free structure DOCX gives us that PDF text
 extraction can't reliably infer.
+
+Image regions: an inline picture lives in its own otherwise-empty
+paragraph as a `w:drawing` element; found via `paragraph._element` (a
+private python-docx attribute - there's no public accessor for a
+paragraph's raw XML, same class of tradeoff as XlsxEngine reaching into
+openpyxl's private `_images`) and resolved to real bytes through the
+paragraph's relationship part (`paragraph.part.related_parts[rId]`), not
+rendered - unlike PdfPlumberEngine, DOCX images are already stored as
+whatever their original file format was, so `image_format` varies (PNG,
+JPEG, ...) instead of always being PNG. Real bug fixed alongside this:
+an image-only paragraph has `.text == ""`, so the pre-existing
+`if not text: continue` would skip it *and* its image entirely - found
+via real-document testing (confirmed empirically: zero trace of an
+embedded picture anywhere in extraction output). Images are now found
+before that skip check runs.
 """
 
 from __future__ import annotations
@@ -30,6 +45,18 @@ from dokuma.types import ExtractionResult, Region
 
 if TYPE_CHECKING:
     from docx.document import Document
+    from docx.text.paragraph import Paragraph as ParagraphType
+
+
+def _paragraph_images(paragraph: ParagraphType) -> Iterator[tuple[bytes, str]]:
+    from docx.oxml.ns import qn
+
+    for blip in paragraph._element.findall(".//" + qn("a:blip")):
+        rid = blip.get(qn("r:embed"))
+        if rid is None:
+            continue
+        part = paragraph.part.related_parts[rid]
+        yield part.blob, part.content_type.rsplit("/", 1)[-1]
 
 
 def _table_to_html(table: object) -> str:
@@ -88,6 +115,19 @@ class DocxEngine(Engine):
 
         for element in _iter_body_elements(document):
             if isinstance(element, Paragraph):
+                for image_bytes, image_format in _paragraph_images(element):
+                    flush_text()
+                    regions.append(
+                        Region(
+                            category="image",
+                            content="",
+                            order=order,
+                            image_bytes=image_bytes,
+                            image_format=image_format,
+                        )
+                    )
+                    order += 1
+
                 text = element.text.strip()
                 if not text:
                     continue

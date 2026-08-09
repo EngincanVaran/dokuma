@@ -55,6 +55,20 @@ def test_xlsx_engine_rejects_non_xlsx_file(dense_text_pdf: Path) -> None:
     assert "pdf" in result.error
 
 
+def test_xlsx_engine_renders_gap_cell_as_empty_not_literal_none(tmp_path: Path) -> None:
+    import openpyxl
+
+    workbook = openpyxl.Workbook()
+    workbook.active["A1"] = "x"
+    workbook.active["C1"] = "y"  # B1 stays empty - a real gap cell, not just an unset row
+    path = tmp_path / "gap.xlsx"
+    workbook.save(str(path))
+
+    result = XlsxEngine().extract(path)
+
+    assert result.tables[0] == "<table><tr><td>x</td><td></td><td>y</td></tr></table>"
+
+
 def test_xlsx_engine_date_only_cell_has_no_spurious_time(tmp_path: Path) -> None:
     # Real bug, fixed: openpyxl always returns datetime.datetime, even for
     # a cell written as datetime.date - rendering it with plain str() put
@@ -90,3 +104,49 @@ def test_xlsx_engine_real_timestamp_keeps_its_time(tmp_path: Path) -> None:
     result = XlsxEngine().extract(path)
 
     assert "14:30:00" in result.tables[0]
+
+
+def test_xlsx_engine_extracts_image_after_sheets_table_region(xlsx_with_image: Path) -> None:
+    # xlsx_with_image (conftest.py): sheet "Data" has cells + one image,
+    # sheet "JustAPicture" has ONLY an image, no cell data at all.
+    result = XlsxEngine().extract(xlsx_with_image)
+
+    assert result.error is None
+    categories_by_page = [(r.category, r.page) for r in result.regions]
+    assert categories_by_page == [
+        ("table", 1),
+        ("image", 1),
+        ("image", 2),
+    ]
+    assert [r.order for r in result.regions] == [0, 1, 2]
+
+
+def test_xlsx_engine_image_only_sheet_is_not_skipped(xlsx_with_image: Path) -> None:
+    # Real bug, fixed: the old skip check was `if not rows: continue`,
+    # which would have silently dropped a sheet with a picture but no
+    # cell data - found via real-document testing (openpyxl embedding an
+    # image doesn't show up as a "row" at all).
+    result = XlsxEngine().extract(xlsx_with_image)
+    picture_only_regions = [r for r in result.regions if r.page == 2]
+
+    assert len(picture_only_regions) == 1
+    assert picture_only_regions[0].category == "image"
+
+
+def test_xlsx_engine_image_bytes_are_the_real_original_file(xlsx_with_image: Path) -> None:
+    import io
+
+    from PIL import Image
+
+    result = XlsxEngine().extract(xlsx_with_image)
+    image_region = next(r for r in result.regions if r.category == "image")
+
+    assert image_region.image_format == "png"
+    decoded = Image.open(io.BytesIO(image_region.image_bytes))
+    assert decoded.format == "PNG"
+    assert decoded.size == (60, 40)
+
+
+def test_xlsx_engine_no_bbox_for_image_regions(xlsx_with_image: Path) -> None:
+    result = XlsxEngine().extract(xlsx_with_image)
+    assert all(r.bbox is None for r in result.regions)

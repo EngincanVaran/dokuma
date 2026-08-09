@@ -101,11 +101,14 @@ class Region:
     actually carries a heading level (DOCX style, HTML h1-h6, Markdown
     #-count) - `None` otherwise, never guessed.
 
-    `image_bytes` is set only for `category="image"` regions - PNG bytes
-    of the picture (a rendered crop of the region, not necessarily the
-    original embedded file's exact bytes/format - see the producing
-    engine's docstring for what "rendered" means there). `content` stays
-    `""` for image regions; there's no text to put there."""
+    `image_bytes`/`image_format` are set only for `category="image"`
+    regions - the picture's raw bytes and a lowercase format hint (e.g.
+    `"png"`, `"jpeg"`). Not every engine gives you back the same *kind* of
+    bytes: some (PdfPlumberEngine) render a fresh crop, always PNG; others
+    (DocxEngine, XlsxEngine) return the original embedded file's bytes
+    as-is, whatever format that happened to be - check the producing
+    engine's docstring, and don't assume PNG. `content` stays `""` for
+    image regions; there's no text to put there."""
 
     category: str  # "text" | "table" | "heading" | "image" (more as engines gain support)
     content: str  # plain text, or HTML for tables; "" for images
@@ -114,9 +117,11 @@ class Region:
     order: int | None = None
     level: int | None = None
     image_bytes: bytes | None = None
+    image_format: str | None = None
 
     def save_image(self, path: str | Path) -> None:
-        """Writes `image_bytes` to disk as a PNG file. Only valid for
+        """Writes `image_bytes` to disk as-is (whatever `image_format`
+        actually is - this does not re-encode). Only valid for
         `category="image"` regions that have `image_bytes` set - raises
         `ValueError` otherwise, since there's nothing to write."""
         if self.image_bytes is None:

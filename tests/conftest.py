@@ -171,6 +171,27 @@ def sample_docx(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def docx_with_image(tmp_path: Path) -> Path:
+    """Text, a real embedded picture (its own inline-shape paragraph, no
+    text runs), then more text - for DocxEngine's image-region extraction
+    and the "image-only paragraph used to be silently skipped" regression."""
+    import io
+
+    picture = io.BytesIO()
+    Image.new("RGB", (60, 40), color=(200, 30, 30)).save(picture, format="PNG")
+    picture.seek(0)
+
+    document = docx.Document()
+    document.add_paragraph("Text before the picture.")
+    document.add_picture(picture, width=docx.shared.Inches(1))
+    document.add_paragraph("Text after the picture.")
+
+    path = tmp_path / "with_image.docx"
+    document.save(str(path))
+    return path
+
+
+@pytest.fixture
 def sample_xlsx(tmp_path: Path) -> Path:
     workbook = openpyxl.Workbook()
     workbook.properties.title = "Dokuma Test Workbook"
@@ -187,6 +208,43 @@ def sample_xlsx(tmp_path: Path) -> Path:
     sheet2["A1"] = "just a note"
 
     path = tmp_path / "sample.xlsx"
+    workbook.save(str(path))
+    return path
+
+
+@pytest.fixture
+def xlsx_with_image(tmp_path: Path) -> Path:
+    """A sheet with data plus a real embedded picture, and a second sheet
+    that has ONLY a picture (no cell data at all) - for XlsxEngine's image
+    extraction and the "image-only sheet used to be skipped entirely"
+    regression (the existing skip check was `if not rows: continue`)."""
+    import io
+
+    from openpyxl.drawing.image import Image as XlsxImage
+
+    def _picture() -> io.BytesIO:
+        buf = io.BytesIO()
+        Image.new("RGB", (60, 40), color=(30, 120, 200)).save(buf, format="PNG")
+        buf.seek(0)
+        return buf
+
+    workbook = openpyxl.Workbook()
+    sheet1 = workbook.active
+    sheet1.title = "Data"
+    sheet1["A1"] = "Name"
+    sheet1["B1"] = "Value"
+    sheet1["A2"] = "widgets"
+    sheet1["B2"] = 42
+    image1 = XlsxImage(_picture())
+    image1.anchor = "D2"
+    sheet1.add_image(image1)
+
+    sheet2 = workbook.create_sheet("JustAPicture")
+    image2 = XlsxImage(_picture())
+    image2.anchor = "A1"
+    sheet2.add_image(image2)
+
+    path = tmp_path / "with_image.xlsx"
     workbook.save(str(path))
     return path
 

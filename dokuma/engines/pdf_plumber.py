@@ -115,6 +115,7 @@ class PdfPlumberEngine(Engine):
                                 page=page_num,
                                 order=order,
                                 image_bytes=_render_image(page, (x0, top, x1, bottom)),
+                                image_format="png",
                             )
                         )
                     order += 1

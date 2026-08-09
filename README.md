@@ -132,24 +132,29 @@ print(result.tables)  # convenience: every table region's HTML content
 ['<table><tr><td>Quarter</td><td>Revenue</td></tr>...</table>']
 ```
 
-**PdfPlumberEngine also extracts embedded pictures** as `category="image"`
-regions, in real reading order alongside text and tables (a picture sitting
-between two paragraphs comes out between them, not bundled at the end):
+**`PdfPlumberEngine`, `DocxEngine`, and `XlsxEngine` also extract embedded
+pictures** as `category="image"` regions, in real reading order alongside
+text and tables where the format has one (a picture sitting between two
+paragraphs comes out between them, not bundled at the end):
 
 ```python
 for region in result.regions:
     if region.category == "image":
-        region.save_image(f"page{region.page}_figure.png")
+        region.save_image(f"page{region.page}_figure.{region.image_format}")
 
-print(len(result.images))  # convenience: every image region's PNG bytes, in order
+print(len(result.images))  # convenience: every image region's raw bytes, in order
 ```
 
-`region.image_bytes` is a *rendered* PNG crop of the picture's bbox, not the
-original embedded file's exact bytes/format - see `engines/pdf_plumber.py`
-for why (short version: PDFs store images under several different, fiddly
-encodings, and rendering sidesteps decoding all of them). This is currently
-PDF-only, via `PdfPlumberEngine` - `PdfInspectorEngine` and every non-PDF
-engine still silently drop embedded pictures, same as they always have.
+`region.image_bytes` isn't the same *kind* of bytes across engines - check
+`region.image_format` rather than assuming: `PdfPlumberEngine` renders a
+fresh crop of the picture's bbox (always PNG, not the original embedded
+file - PDFs store images under several different, fiddly encodings, and
+rendering sidesteps decoding all of them, see `engines/pdf_plumber.py`);
+`DocxEngine`/`XlsxEngine` return the original embedded file's bytes as-is,
+whatever format that happened to be (PNG, JPEG, ...). `PdfInspectorEngine`
+(the default PDF engine) and every other non-PDF engine still silently
+drop embedded pictures - HTML/Markdown's `<img src>` is only a URL/path
+reference, not bytes, and isn't handled.
 
 **Errors never raise from an engine** - a wrong-format file, a missing path,
 or an internal library crash all come back as `result.error` instead, so
@@ -286,7 +291,8 @@ dokuma/
     base.py                       # Engine (ABC): _extract() + format check/timing/error isolation
     pdf_inspector.py                # PdfInspectorEngine - fast, no bbox/page data
     pdf_plumber.py                    # PdfPlumberEngine - real bbox/page data, image regions
-    docx.py, xlsx.py, xls.py, html.py, markdown.py, csv.py, email_.py   # one engine each, real document order verified per-engine
+    docx.py, xlsx.py                  # also produce image regions (original embedded bytes)
+    xls.py, html.py, markdown.py, csv.py, email_.py   # one engine each, real document order verified per-engine
 ```
 
 `Engine` is a full ABC - `_extract()` is wrapped by shared format-check /
@@ -308,14 +314,15 @@ dokuma/
   merge.py      # stitches multi-engine results back into one document, reading order preserved
 ```
 
-Current extraction covers text/table/heading/image regions, but only
-`PdfPlumberEngine` produces image regions today (rendered PNG crops, no
-OCR/VLM analysis of what's *in* them) - `PdfInspectorEngine` and every
-non-PDF engine still silently drop embedded pictures, and DOCX/XLSX image
-extraction hasn't been built yet (see "Using the extraction engines"
-above for what PDF image extraction actually gives you). `EmailEngine` is
-deliberately scoped down for v1 - body text only, no attachment listing
-or recursive extraction into attachments.
+Current extraction covers text/table/heading/image regions, with no
+OCR/VLM analysis of what's actually *in* an image region yet - that's the
+gap this section is about. `PdfPlumberEngine`, `DocxEngine`, and
+`XlsxEngine` produce image regions today (see "Using the extraction
+engines" above for what each one actually gives you back);
+`PdfInspectorEngine` and HTML/Markdown/XLS/CSV/email still don't touch
+embedded pictures at all. `EmailEngine` is deliberately scoped down for
+v1 - body text only, no attachment listing or recursive extraction into
+attachments.
 
 ## License
 

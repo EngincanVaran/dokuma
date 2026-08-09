@@ -50,3 +50,36 @@ def test_docx_engine_rejects_non_docx_file(dense_text_pdf: Path) -> None:
     assert result.error is not None
     assert "docx" in result.error
     assert "pdf" in result.error
+
+
+def test_docx_engine_extracts_image_region_in_order(docx_with_image: Path) -> None:
+    # Real bug, fixed: an image-only paragraph has .text == "", so it used
+    # to be silently skipped entirely (both the paragraph AND its image) -
+    # found via real-document testing, confirmed empirically that zero
+    # trace of the embedded picture appeared anywhere in extraction output.
+    result = DocxEngine().extract(docx_with_image)
+
+    assert result.error is None
+    categories = [r.category for r in result.regions]
+    assert categories == ["text", "image", "text"]
+
+    before, image, after = result.regions
+    assert "before" in before.content
+    assert "after" in after.content
+    assert image.content == ""
+    assert image.image_bytes is not None
+    assert image.image_format == "png"
+    assert [r.order for r in result.regions] == [0, 1, 2]
+
+
+def test_docx_engine_image_bytes_are_the_real_original_file(docx_with_image: Path) -> None:
+    import io
+
+    from PIL import Image
+
+    result = DocxEngine().extract(docx_with_image)
+    image_region = next(r for r in result.regions if r.category == "image")
+
+    decoded = Image.open(io.BytesIO(image_region.image_bytes))
+    assert decoded.format == "PNG"
+    assert decoded.size == (60, 40)  # exact original dimensions, not a re-render
