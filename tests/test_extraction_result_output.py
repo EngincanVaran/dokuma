@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from dokuma.engines.docx import DocxEngine
 from dokuma.engines.html import HtmlEngine
 from dokuma.engines.markdown import MarkdownEngine
@@ -91,3 +93,32 @@ def test_to_markdown_ignores_table_format_setting() -> None:
     )
     assert "| A |" in result.to_markdown()
     assert "<row>" not in result.to_markdown()
+
+
+def test_images_property_collects_image_region_bytes() -> None:
+    result = ExtractionResult(
+        path=Path("x"),
+        format="fake",
+        engine="fake",
+        regions=[
+            Region(category="text", content="prose", order=0),
+            Region(category="image", content="", image_bytes=b"fake-png-bytes", order=1),
+        ],
+    )
+    assert result.images == [b"fake-png-bytes"]
+
+
+def test_region_save_image_writes_bytes_to_disk(tmp_path: Path) -> None:
+    region = Region(category="image", content="", image_bytes=b"fake-png-bytes")
+    out_path = tmp_path / "out.png"
+
+    region.save_image(out_path)
+
+    assert out_path.read_bytes() == b"fake-png-bytes"
+
+
+def test_region_save_image_raises_without_image_bytes(tmp_path: Path) -> None:
+    region = Region(category="text", content="no image here")
+
+    with pytest.raises(ValueError, match="image_bytes"):
+        region.save_image(tmp_path / "out.png")

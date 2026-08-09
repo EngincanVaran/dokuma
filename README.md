@@ -132,6 +132,25 @@ print(result.tables)  # convenience: every table region's HTML content
 ['<table><tr><td>Quarter</td><td>Revenue</td></tr>...</table>']
 ```
 
+**PdfPlumberEngine also extracts embedded pictures** as `category="image"`
+regions, in real reading order alongside text and tables (a picture sitting
+between two paragraphs comes out between them, not bundled at the end):
+
+```python
+for region in result.regions:
+    if region.category == "image":
+        region.save_image(f"page{region.page}_figure.png")
+
+print(len(result.images))  # convenience: every image region's PNG bytes, in order
+```
+
+`region.image_bytes` is a *rendered* PNG crop of the picture's bbox, not the
+original embedded file's exact bytes/format - see `engines/pdf_plumber.py`
+for why (short version: PDFs store images under several different, fiddly
+encodings, and rendering sidesteps decoding all of them). This is currently
+PDF-only, via `PdfPlumberEngine` - `PdfInspectorEngine` and every non-PDF
+engine still silently drop embedded pictures, same as they always have.
+
 **Errors never raise from an engine** - a wrong-format file, a missing path,
 or an internal library crash all come back as `result.error` instead, so
 looping over many files never gets aborted by one bad one:
@@ -266,7 +285,7 @@ dokuma/
   engines/
     base.py                       # Engine (ABC): _extract() + format check/timing/error isolation
     pdf_inspector.py                # PdfInspectorEngine - fast, no bbox/page data
-    pdf_plumber.py                    # PdfPlumberEngine - real bbox/page data, slower
+    pdf_plumber.py                    # PdfPlumberEngine - real bbox/page data, image regions
     docx.py, xlsx.py, xls.py, html.py, markdown.py, csv.py, email_.py   # one engine each, real document order verified per-engine
 ```
 
@@ -289,10 +308,14 @@ dokuma/
   merge.py      # stitches multi-engine results back into one document, reading order preserved
 ```
 
-Current extraction covers text/table/heading regions; images/figures aren't
-tagged for OCR/VLM handling yet. `EmailEngine` is deliberately scoped down
-for v1 - body text only, no attachment listing or recursive extraction into
-attachments.
+Current extraction covers text/table/heading/image regions, but only
+`PdfPlumberEngine` produces image regions today (rendered PNG crops, no
+OCR/VLM analysis of what's *in* them) - `PdfInspectorEngine` and every
+non-PDF engine still silently drop embedded pictures, and DOCX/XLSX image
+extraction hasn't been built yet (see "Using the extraction engines"
+above for what PDF image extraction actually gives you). `EmailEngine` is
+deliberately scoped down for v1 - body text only, no attachment listing
+or recursive extraction into attachments.
 
 ## License
 

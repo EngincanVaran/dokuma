@@ -8,6 +8,7 @@ import openpyxl
 import pytest
 import xlwt
 from fpdf import FPDF
+from PIL import Image
 
 
 @pytest.fixture
@@ -92,6 +93,57 @@ def text_table_text_pdf(tmp_path: Path) -> Path:
     pdf.multi_cell(0, 8, "Closing paragraph after the table.")
 
     path = tmp_path / "text_table_text.pdf"
+    pdf.output(str(path))
+    return path
+
+
+@pytest.fixture
+def image_pdf(tmp_path: Path) -> Path:
+    """Text, then a real embedded picture, then more text - for
+    PdfPlumberEngine's image-region extraction. The picture is a small
+    solid-color PIL image, not a photo - content doesn't matter, only that
+    it's a genuine raster XObject pdfplumber's `page.images` will detect,
+    not a hand-rolled byte string."""
+    picture = Image.new("RGB", (60, 40), color=(200, 30, 30))
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 8, "Intro paragraph before the picture.")
+    pdf.ln(5)
+    pdf.image(picture, x=20, w=40)
+    pdf.ln(5)
+    pdf.multi_cell(0, 8, "Closing paragraph after the picture.")
+
+    path = tmp_path / "image.pdf"
+    pdf.output(str(path))
+    return path
+
+
+@pytest.fixture
+def table_and_image_pdf(tmp_path: Path) -> Path:
+    """Text, a table, an image, then more text - so real reading order can
+    be verified across all three block kinds PdfPlumberEngine merges by
+    vertical position, not just text+table."""
+    picture = Image.new("RGB", (60, 40), color=(30, 120, 200))
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.multi_cell(0, 8, "Intro paragraph.")
+    with pdf.table() as table:
+        row = table.row()
+        row.cell("Name")
+        row.cell("Value")
+        row = table.row()
+        row.cell("widgets")
+        row.cell("42")
+    pdf.ln(5)
+    pdf.image(picture, x=20, w=40)
+    pdf.ln(45)
+    pdf.multi_cell(0, 8, "Closing paragraph.")
+
+    path = tmp_path / "table_and_image.pdf"
     pdf.output(str(path))
     return path
 

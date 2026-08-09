@@ -93,20 +93,37 @@ class DocumentInfo:
 
 @dataclass
 class Region:
-    """One piece of extracted content - a paragraph, a table, eventually a
-    figure/formula. `bbox`/`page`/`order` are `None` when the engine that
-    produced this region can't provide real position data (e.g. an engine
-    that only returns flattened text) - left absent rather than faked.
-    `level` (1-6) is set for `category="heading"` regions when the source
-    format actually carries a heading level (DOCX style, HTML h1-h6,
-    Markdown #-count) - `None` otherwise, never guessed."""
+    """One piece of extracted content - a paragraph, a table, a figure.
+    `bbox`/`page`/`order` are `None` when the engine that produced this
+    region can't provide real position data (e.g. an engine that only
+    returns flattened text) - left absent rather than faked. `level` (1-6)
+    is set for `category="heading"` regions when the source format
+    actually carries a heading level (DOCX style, HTML h1-h6, Markdown
+    #-count) - `None` otherwise, never guessed.
 
-    category: str  # "text" | "table" | "heading" (more categories as engines support them)
-    content: str  # plain text, or HTML for tables
+    `image_bytes` is set only for `category="image"` regions - PNG bytes
+    of the picture (a rendered crop of the region, not necessarily the
+    original embedded file's exact bytes/format - see the producing
+    engine's docstring for what "rendered" means there). `content` stays
+    `""` for image regions; there's no text to put there."""
+
+    category: str  # "text" | "table" | "heading" | "image" (more as engines gain support)
+    content: str  # plain text, or HTML for tables; "" for images
     bbox: tuple[float, float, float, float] | None = None
     page: int | None = None
     order: int | None = None
     level: int | None = None
+    image_bytes: bytes | None = None
+
+    def save_image(self, path: str | Path) -> None:
+        """Writes `image_bytes` to disk as a PNG file. Only valid for
+        `category="image"` regions that have `image_bytes` set - raises
+        `ValueError` otherwise, since there's nothing to write."""
+        if self.image_bytes is None:
+            raise ValueError(
+                "save_image() requires image_bytes to be set (category='image' regions only)"
+            )
+        Path(path).write_bytes(self.image_bytes)
 
 
 @dataclass
@@ -143,6 +160,13 @@ class ExtractionResult:
         html_tables = (r.content for r in self.regions if r.category == "table")
         return [convert_table(html, self.table_format) for html in html_tables]
 
+    @property
+    def images(self) -> list[bytes]:
+        """Convenience: every image region's PNG bytes, in order. Use
+        `region.save_image(path)` on an individual `Region` instead if you
+        want the region's other data (bbox, page) alongside its bytes."""
+        return [r.image_bytes for r in self.regions if r.image_bytes is not None]
+
     def tables_as_dataframes(self) -> list[pd.DataFrame]:
         """Every table region as a `pandas.DataFrame`. Ignores
         `table_format` - always converts from the underlying HTML, since a
@@ -156,7 +180,10 @@ class ExtractionResult:
         """Renders the whole document - every region, in order - as one
         markdown string. Tables always render as markdown tables here
         regardless of `table_format` (this method's whole point is a single
-        markdown view, independent of the per-region-format config)."""
+        markdown view, independent of the per-region-format config). Image
+        regions render as a `[image]` placeholder, not real markdown image
+        syntax - there's no file on disk to point a `![]()` at until the
+        caller calls `region.save_image()` themselves."""
         from dokuma.tables import table_to_markdown
 
         parts: list[str] = []
@@ -166,6 +193,8 @@ class ExtractionResult:
                 parts.append(f"{'#' * level} {region.content}")
             elif region.category == "table":
                 parts.append(table_to_markdown(region.content))
+            elif region.category == "image":
+                parts.append("[image]")
             else:
                 parts.append(region.content)
         return "\n\n".join(parts)
