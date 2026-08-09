@@ -38,15 +38,18 @@ class _StructureParser(HTMLParser):
         return len(" ".join(self._text_parts).split())
 
 
-def inspect_html(path: Path) -> DocumentInfo:
-    parser = _StructureParser()
-    parser.feed(path.read_text(encoding="utf-8", errors="replace"))
+class HtmlInspector:
+    format = "html"
 
-    return DocumentInfo(
-        path=path,
-        format="html",
-        size_bytes=path.stat().st_size,
-        heading_count=parser.heading_count,
-        word_count=parser.word_count(),
-        title=parser.title.strip() if parser.title else None,
-    )
+    def inspect(self, path: Path) -> DocumentInfo:
+        parser = _StructureParser()
+        parser.feed(path.read_text(encoding="utf-8", errors="replace"))
+
+        return DocumentInfo(
+            path=path,
+            format="html",
+            size_bytes=path.stat().st_size,
+            heading_count=parser.heading_count,
+            word_count=parser.word_count(),
+            title=parser.title.strip() if parser.title else None,
+        )

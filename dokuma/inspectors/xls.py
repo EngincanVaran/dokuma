@@ -17,26 +17,29 @@ from pathlib import Path
 from dokuma.types import DocumentInfo
 
 
-def inspect_xls(path: Path) -> DocumentInfo:
-    import xlrd
-    from openpyxl.utils import get_column_letter
+class XlsInspector:
+    format = "xls"
 
-    book = xlrd.open_workbook(str(path))
-    sheet_names = book.sheet_names()
+    def inspect(self, path: Path) -> DocumentInfo:
+        import xlrd
+        from openpyxl.utils import get_column_letter
 
-    sheet_dimensions = {}
-    for name in sheet_names:
-        sheet = book.sheet_by_name(name)
-        if sheet.ncols and sheet.nrows:
-            sheet_dimensions[name] = f"A1:{get_column_letter(sheet.ncols)}{sheet.nrows}"
-        else:
-            sheet_dimensions[name] = "A1:A1"
+        book = xlrd.open_workbook(str(path))
+        sheet_names = book.sheet_names()
 
-    return DocumentInfo(
-        path=path,
-        format="xls",
-        size_bytes=path.stat().st_size,
-        sheet_count=book.nsheets,
-        sheet_names=sheet_names,
-        sheet_dimensions=sheet_dimensions,
-    )
+        sheet_dimensions = {}
+        for name in sheet_names:
+            sheet = book.sheet_by_name(name)
+            if sheet.ncols and sheet.nrows:
+                sheet_dimensions[name] = f"A1:{get_column_letter(sheet.ncols)}{sheet.nrows}"
+            else:
+                sheet_dimensions[name] = "A1:A1"
+
+        return DocumentInfo(
+            path=path,
+            format="xls",
+            size_bytes=path.stat().st_size,
+            sheet_count=book.nsheets,
+            sheet_names=sheet_names,
+            sheet_dimensions=sheet_dimensions,
+        )

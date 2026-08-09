@@ -24,35 +24,38 @@ def _dimensions_str(sheet: Worksheet) -> str:
     return f"{start}:{end}"
 
 
-def inspect_xlsx(path: Path) -> DocumentInfo:
-    import openpyxl
+class XlsxInspector:
+    format = "xlsx"
 
-    workbook = openpyxl.load_workbook(str(path), read_only=True, data_only=True)
-    try:
-        sheet_names = list(workbook.sheetnames)
-        sheet_dimensions = {name: _dimensions_str(workbook[name]) for name in sheet_names}
+    def inspect(self, path: Path) -> DocumentInfo:
+        import openpyxl
 
-        props = workbook.properties
-        metadata = {
-            k: str(v)
-            for k, v in {
-                "creator": props.creator,
-                "subject": props.subject,
-                "created": props.created,
-                "modified": props.modified,
-            }.items()
-            if v
-        }
+        workbook = openpyxl.load_workbook(str(path), read_only=True, data_only=True)
+        try:
+            sheet_names = list(workbook.sheetnames)
+            sheet_dimensions = {name: _dimensions_str(workbook[name]) for name in sheet_names}
 
-        return DocumentInfo(
-            path=path,
-            format="xlsx",
-            size_bytes=path.stat().st_size,
-            sheet_count=len(sheet_names),
-            sheet_names=sheet_names,
-            sheet_dimensions=sheet_dimensions,
-            title=props.title or None,
-            metadata=metadata,
-        )
-    finally:
-        workbook.close()
+            props = workbook.properties
+            metadata = {
+                k: str(v)
+                for k, v in {
+                    "creator": props.creator,
+                    "subject": props.subject,
+                    "created": props.created,
+                    "modified": props.modified,
+                }.items()
+                if v
+            }
+
+            return DocumentInfo(
+                path=path,
+                format="xlsx",
+                size_bytes=path.stat().st_size,
+                sheet_count=len(sheet_names),
+                sheet_names=sheet_names,
+                sheet_dimensions=sheet_dimensions,
+                title=props.title or None,
+                metadata=metadata,
+            )
+        finally:
+            workbook.close()

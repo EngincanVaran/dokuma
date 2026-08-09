@@ -11,33 +11,36 @@ from pathlib import Path
 from dokuma.types import DocumentInfo
 
 
-def inspect_email(path: Path) -> DocumentInfo:
-    with path.open("rb") as f:
-        message = BytesParser(policy=policy.default).parse(f)
+class EmailInspector:
+    format = "email"
 
-    attachment_count = sum(1 for _ in message.iter_attachments())
+    def inspect(self, path: Path) -> DocumentInfo:
+        with path.open("rb") as f:
+            message = BytesParser(policy=policy.default).parse(f)
 
-    body = message.get_body(preferencelist=("plain", "html"))
-    word_count = len(body.get_content().split()) if body is not None else None
+        attachment_count = sum(1 for _ in message.iter_attachments())
 
-    metadata = {
-        k: v
-        for k, v in {
-            "from": str(message.get("From", "")),
-            "to": str(message.get("To", "")),
-            "date": str(message.get("Date", "")),
-        }.items()
-        if v
-    }
+        body = message.get_body(preferencelist=("plain", "html"))
+        word_count = len(body.get_content().split()) if body is not None else None
 
-    subject = message.get("Subject")
+        metadata = {
+            k: v
+            for k, v in {
+                "from": str(message.get("From", "")),
+                "to": str(message.get("To", "")),
+                "date": str(message.get("Date", "")),
+            }.items()
+            if v
+        }
 
-    return DocumentInfo(
-        path=path,
-        format="email",
-        size_bytes=path.stat().st_size,
-        word_count=word_count,
-        attachment_count=attachment_count,
-        title=str(subject) if subject else None,
-        metadata=metadata,
-    )
+        subject = message.get("Subject")
+
+        return DocumentInfo(
+            path=path,
+            format="email",
+            size_bytes=path.stat().st_size,
+            word_count=word_count,
+            attachment_count=attachment_count,
+            title=str(subject) if subject else None,
+            metadata=metadata,
+        )

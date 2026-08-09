@@ -10,15 +10,18 @@ from dokuma.types import DocumentInfo
 _HEADING_RE = re.compile(r"^#{1,6}\s+(.*)", re.MULTILINE)
 
 
-def inspect_markdown(path: Path) -> DocumentInfo:
-    text = path.read_text(encoding="utf-8", errors="replace")
-    headings = _HEADING_RE.findall(text)
+class MarkdownInspector:
+    format = "markdown"
 
-    return DocumentInfo(
-        path=path,
-        format="markdown",
-        size_bytes=path.stat().st_size,
-        heading_count=len(headings),
-        word_count=len(text.split()),
-        title=headings[0].strip() if headings else None,
-    )
+    def inspect(self, path: Path) -> DocumentInfo:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        headings = _HEADING_RE.findall(text)
+
+        return DocumentInfo(
+            path=path,
+            format="markdown",
+            size_bytes=path.stat().st_size,
+            heading_count=len(headings),
+            word_count=len(text.split()),
+            title=headings[0].strip() if headings else None,
+        )

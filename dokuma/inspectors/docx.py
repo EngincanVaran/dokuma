@@ -40,39 +40,44 @@ def _cached_page_count(path: Path) -> int | None:
     return None
 
 
-def inspect_docx(path: Path) -> DocumentInfo:
-    import docx
+class DocxInspector:
+    format = "docx"
 
-    document = docx.Document(str(path))
+    def inspect(self, path: Path) -> DocumentInfo:
+        import docx
 
-    word_count = sum(len(p.text.split()) for p in document.paragraphs)
-    # Default Word templates name heading styles "Heading 1".."Heading 9" -
-    # a heuristic, not guaranteed for custom/localized templates.
-    heading_count = sum(
-        1 for p in document.paragraphs if p.style is not None and p.style.name.startswith("Heading")
-    )
+        document = docx.Document(str(path))
 
-    props = document.core_properties
-    metadata = {
-        k: str(v)
-        for k, v in {
-            "author": props.author,
-            "subject": props.subject,
-            "created": props.created,
-            "modified": props.modified,
-        }.items()
-        if v
-    }
+        word_count = sum(len(p.text.split()) for p in document.paragraphs)
+        # Default Word templates name heading styles "Heading 1".."Heading 9" -
+        # a heuristic, not guaranteed for custom/localized templates.
+        heading_count = sum(
+            1
+            for p in document.paragraphs
+            if p.style is not None and p.style.name.startswith("Heading")
+        )
 
-    return DocumentInfo(
-        path=path,
-        format="docx",
-        size_bytes=path.stat().st_size,
-        page_count=_cached_page_count(path),
-        paragraph_count=len(document.paragraphs),
-        table_count=len(document.tables),
-        heading_count=heading_count,
-        word_count=word_count,
-        title=props.title or None,
-        metadata=metadata,
-    )
+        props = document.core_properties
+        metadata = {
+            k: str(v)
+            for k, v in {
+                "author": props.author,
+                "subject": props.subject,
+                "created": props.created,
+                "modified": props.modified,
+            }.items()
+            if v
+        }
+
+        return DocumentInfo(
+            path=path,
+            format="docx",
+            size_bytes=path.stat().st_size,
+            page_count=_cached_page_count(path),
+            paragraph_count=len(document.paragraphs),
+            table_count=len(document.tables),
+            heading_count=heading_count,
+            word_count=word_count,
+            title=props.title or None,
+            metadata=metadata,
+        )

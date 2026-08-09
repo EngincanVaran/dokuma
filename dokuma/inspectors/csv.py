@@ -22,24 +22,27 @@ def _detect_delimiter(sample: str) -> str:
         return ","
 
 
-def inspect_csv(path: Path) -> DocumentInfo:
-    text = path.read_text(encoding="utf-8", errors="replace")
-    is_tsv = path.suffix.lower() == ".tsv"
-    delimiter = "\t" if is_tsv else _detect_delimiter(text[:_SAMPLE_CHARS])
+class CsvInspector:
+    format = "csv"
 
-    try:
-        has_header = csv.Sniffer().has_header(text[:_SAMPLE_CHARS])
-    except csv.Error:
-        has_header = False
+    def inspect(self, path: Path) -> DocumentInfo:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        is_tsv = path.suffix.lower() == ".tsv"
+        delimiter = "\t" if is_tsv else _detect_delimiter(text[:_SAMPLE_CHARS])
 
-    rows = list(csv.reader(text.splitlines(), delimiter=delimiter))
-    column_count = len(rows[0]) if rows else 0
+        try:
+            has_header = csv.Sniffer().has_header(text[:_SAMPLE_CHARS])
+        except csv.Error:
+            has_header = False
 
-    return DocumentInfo(
-        path=path,
-        format="tsv" if is_tsv else "csv",
-        size_bytes=path.stat().st_size,
-        row_count=len(rows),
-        column_count=column_count,
-        metadata={"delimiter": repr(delimiter), "has_header": str(has_header)},
-    )
+        rows = list(csv.reader(text.splitlines(), delimiter=delimiter))
+        column_count = len(rows[0]) if rows else 0
+
+        return DocumentInfo(
+            path=path,
+            format="tsv" if is_tsv else "csv",
+            size_bytes=path.stat().st_size,
+            row_count=len(rows),
+            column_count=column_count,
+            metadata={"delimiter": repr(delimiter), "has_header": str(has_header)},
+        )
