@@ -13,10 +13,11 @@
 
 *Turkish for "weaving" / "woven fabric".*
 
-A Python library for extracting structured content from any document type -
-PDF, DOCX, XLSX, email, HTML, and more - into one unified schema, with
-automatic per-region detection of what needs OCR/VLM handling versus what can
-be read natively.
+A Python library for extracting structured content - text, tables,
+headings, images - from PDF, DOCX, XLSX, email, HTML, and more, into one
+unified schema. Per-region OCR/VLM routing (automatically detecting what
+needs OCR vs. what can be read natively) is the long-term vision, not
+built yet - see "Design" below for what's real today.
 
 ## Status
 
@@ -24,11 +25,12 @@ be read natively.
 format-specific structure) across 8 formats, without doing full content
 extraction.
 
-**`extract()` (structured extraction: text/table/heading regions) is
+**`extract()` (structured extraction: text/table/heading/image regions) is
 implemented for all 8 formats** - PDF has two swappable engines
-(pdf-inspector, pdfplumber), the rest have one each - see "Using the
-extraction engines" below. The full per-region OCR/VLM-tagging vision is
-not built yet - see "Design" for current vs. planned architecture.
+(pdf-inspector, pdfplumber), the rest have one each - see "Quick start"
+below and [`examples/`](examples/). The full per-region OCR/VLM-tagging
+vision is not built yet - see "Design" for current vs. planned
+architecture.
 
 ## Supported formats
 
@@ -78,153 +80,33 @@ import dokuma
 
 info = dokuma.inspect("report.pdf")
 print(info.summary())
+
+result = dokuma.extract("report.pdf")
+print(result.text)
+print(result.tables)
 ```
 
-```
-report.pdf (pdf)
-  size: 5,145 bytes
-  pages: 12
-  type: text_based (confidence 0.50)
-```
+A few things worth knowing before you dig in:
 
-```python
-if info.needs_ocr():
-    print(f"Pages needing OCR: {info.pages_needing_ocr}")
-```
+- **PDF has two swappable engines** - the default (`pdf-inspector`) is
+  fast but gives no bbox/page data; pass `engine=dokuma.PdfPlumberEngine()`
+  for real position data and image extraction.
+- **Image extraction** works for PDF (via `PdfPlumberEngine`), DOCX, and
+  XLSX - embedded pictures come back as `category="image"` regions you
+  save with `region.save_image(path)`. Every other engine still drops
+  images silently.
+- **Engines never raise** - a wrong-format file or internal crash comes
+  back as `result.error`, so looping over many files never aborts on one
+  bad one. (The top-level `dokuma.extract()`/`inspect()` *do* raise, which
+  is correct for a single one-off call.)
+- **`ExtractConfig`** has two knobs: `table_format`
+  (`"html"`/`"markdown"`/`"xml"`, controls what `.tables` returns) and
+  `extract_images` (skip real per-engine image-extraction cost when you
+  don't need it).
 
-## Using the extraction engines
-
-`extract()` goes further than `inspect()` - instead of just metadata, it
-returns `Region`s (text/table pieces of the document, in order). PDF has
-**two swappable engines** with genuinely different capabilities, which is
-the whole reason `Engine` is a class hierarchy rather than plain functions.
-
-```python
-import dokuma
-
-result = dokuma.extract("quarterly.pdf")  # default: PdfInspectorEngine
-print("engine:", result.engine)
-for region in result.regions:
-    print(f"  [{region.category}] page={region.page} bbox={region.bbox}")
-```
-
-```
-engine: pdf-inspector
-  [text] page=None bbox=None order=0
-  [table] page=None bbox=None order=1
-```
-
-pdf-inspector is fast, but its public API doesn't expose per-region layout -
-`bbox`/`page` come back `None` rather than faked. Pass `engine=` explicitly
-to use pdfplumber instead, which *does* give real position data:
-
-```python
-result = dokuma.extract("quarterly.pdf", engine=dokuma.PdfPlumberEngine())
-for region in result.regions:
-    print(f"  [{region.category}] page={region.page} bbox={region.bbox}")
-
-print(result.tables)  # convenience: every table region's HTML content
-```
-
-```
-  [text] page=1 bbox=(0.0, 0.0, 595.28, 841.89)
-  [table] page=1 bbox=(28.35, 51.02, 566.93, 123.02)
-['<table><tr><td>Quarter</td><td>Revenue</td></tr>...</table>']
-```
-
-**`PdfPlumberEngine`, `DocxEngine`, and `XlsxEngine` also extract embedded
-pictures** as `category="image"` regions, in real reading order alongside
-text and tables where the format has one (a picture sitting between two
-paragraphs comes out between them, not bundled at the end):
-
-```python
-for region in result.regions:
-    if region.category == "image":
-        region.save_image(f"page{region.page}_figure.{region.image_format}")
-
-print(len(result.images))  # convenience: every image region's raw bytes, in order
-```
-
-`region.image_bytes` isn't the same *kind* of bytes across engines - check
-`region.image_format` rather than assuming: `PdfPlumberEngine` renders a
-fresh crop of the picture's bbox (always PNG, not the original embedded
-file - PDFs store images under several different, fiddly encodings, and
-rendering sidesteps decoding all of them, see `engines/pdf_plumber.py`);
-`DocxEngine`/`XlsxEngine` return the original embedded file's bytes as-is,
-whatever format that happened to be (PNG, JPEG, ...). `PdfInspectorEngine`
-(the default PDF engine) and every other non-PDF engine still silently
-drop embedded pictures - HTML/Markdown's `<img src>` is only a URL/path
-reference, not bytes, and isn't handled.
-
-**Errors never raise from an engine** - a wrong-format file, a missing path,
-or an internal library crash all come back as `result.error` instead, so
-looping over many files never gets aborted by one bad one:
-
-```python
-result = dokuma.PdfPlumberEngine().extract("report.docx")
-print(result.error)
-# pdfplumber only extracts 'pdf' files, got 'docx' (report.docx)
-```
-
-(The top-level `dokuma.extract()`/`dokuma.inspect()` are the exception -
-those *do* raise on a missing file or an unsupported format, which is the
-right behavior for a single one-off call rather than a batch loop.)
-
-## Configuring extraction output
-
-`ExtractConfig` is deliberately minimal - only knobs that something in
-this codebase actually consumes, not a placeholder surface. `table_format`
-controls what `.tables` returns; regions always store tables as HTML
-internally regardless:
-
-```python
-from dokuma.config import ExtractConfig
-
-result = dokuma.extract(
-    "quarterly.pdf",
-    engine=dokuma.PdfPlumberEngine(),
-    config=ExtractConfig(table_format="markdown"),
-)
-print(result.tables[0])
-```
-
-```
-| Name | Value |
-| --- | --- |
-| widgets | 42 |
-```
-
-`table_format` accepts `"html"` (default), `"markdown"`, or `"xml"`. For
-pandas output (needs `dokuma[pandas]`), use `.tables_as_dataframes()`
-directly - a `DataFrame` isn't a string, so it doesn't fit the same knob.
-
-`extract_images` (default `True`) skips image extraction entirely when set
-`False` - real, avoidable cost, not just fewer results: `PdfPlumberEngine`
-skips rendering each picture's crop, `XlsxEngine` skips opening a second
-full workbook handle just to reach embedded pictures, `DocxEngine` skips
-the relationship-part lookups. Set it if you only care about text/tables:
-
-```python
-result = dokuma.extract("report.xlsx", config=ExtractConfig(extract_images=False))
-```
-
-Need the whole document as one string instead of separate regions?
-`.to_markdown()` renders every region in order - headings at their real
-level, tables always as markdown tables regardless of `table_format`:
-
-```python
-print(result.to_markdown())
-```
-
-```
-Intro paragraph before the table.
-
-| Name | Value |
-| --- | --- |
-| widgets | 42 |
-
-Closing paragraph after the table.
-```
+See [`examples/`](examples/) for runnable scripts covering all of the
+above in depth - engine comparison, image extraction, config options, and
+batch processing with error handling.
 
 ## The idea
 
@@ -307,8 +189,9 @@ dokuma/
 ```
 
 `Engine` is a full ABC - `_extract()` is wrapped by shared format-check /
-timing / "never raises" machinery (see "Using the extraction engines"
-above), because multiple engines can genuinely exist per format (PDF has
+timing / "never raises" machinery (see "Quick start" above and
+[`examples/06_batch_processing.py`](examples/06_batch_processing.py)),
+because multiple engines can genuinely exist per format (PDF has
 two) and may carry real config later (API keys, model choice, confidence
 thresholds). `Inspector` (`inspectors/base.py`) is intentionally lighter: a
 structural `Protocol`, not an ABC - every format has exactly one inspector
@@ -328,12 +211,12 @@ dokuma/
 Current extraction covers text/table/heading/image regions, with no
 OCR/VLM analysis of what's actually *in* an image region yet - that's the
 gap this section is about. `PdfPlumberEngine`, `DocxEngine`, and
-`XlsxEngine` produce image regions today (see "Using the extraction
-engines" above for what each one actually gives you back);
-`PdfInspectorEngine` and HTML/Markdown/XLS/CSV/email still don't touch
-embedded pictures at all. `EmailEngine` is deliberately scoped down for
-v1 - body text only, no attachment listing or recursive extraction into
-attachments.
+`XlsxEngine` produce image regions today (see
+[`examples/04_images.py`](examples/04_images.py) for what each one
+actually gives you back); `PdfInspectorEngine` and HTML/Markdown/XLS/CSV/
+email still don't touch embedded pictures at all. `EmailEngine` is
+deliberately scoped down for v1 - body text only, no attachment listing
+or recursive extraction into attachments.
 
 ## License
 
