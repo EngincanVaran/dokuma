@@ -25,10 +25,10 @@ format-specific structure) across 8 formats, without doing full content
 extraction.
 
 **`extract()` (structured extraction: text/table/heading regions) is
-implemented for PDF** (two swappable engines: pdf-inspector, pdfplumber)**,
-DOCX, XLSX, HTML, and Markdown** - see "Using the extraction engines" below.
-XLS/CSV/email extraction engines, and the full per-region OCR/VLM-tagging
-vision, are not built yet - see "Design" for current vs. planned architecture.
+implemented for all 8 formats** - PDF has two swappable engines
+(pdf-inspector, pdfplumber), the rest have one each - see "Using the
+extraction engines" below. The full per-region OCR/VLM-tagging vision is
+not built yet - see "Design" for current vs. planned architecture.
 
 ## Supported formats
 
@@ -245,12 +245,15 @@ dokuma/
   detect.py               # extension-based format detection
   inspect.py                # inspect(path) -> DocumentInfo, dispatches by format
   inspectors/
+    base.py                  # Inspector - a structural Protocol, not an ABC (see below)
     pdf.py, docx.py, xlsx.py, xls.py, html.py, markdown.py, csv.py, email_.py
 ```
 
-One function per format, dispatched from a single `inspect()` entry point via
-a name -> function table. Adding a format is one more `inspectors/<name>.py`
-plus one dispatch-table entry - nothing else changes.
+One small class per format (`PdfInspector`, `DocxInspector`, ...), each with
+a single `inspect(path) -> DocumentInfo` method, dispatched from a single
+`inspect()` entry point via a name -> instance table. Adding a format is one
+more `inspectors/<name>.py` plus one dispatch-table entry - nothing else
+changes.
 
 ### Implemented: structured extraction
 
@@ -264,30 +267,32 @@ dokuma/
     base.py                       # Engine (ABC): _extract() + format check/timing/error isolation
     pdf_inspector.py                # PdfInspectorEngine - fast, no bbox/page data
     pdf_plumber.py                    # PdfPlumberEngine - real bbox/page data, slower
-    docx.py, xlsx.py, html.py, markdown.py   # one engine each, real document order verified per-engine
+    docx.py, xlsx.py, xls.py, html.py, markdown.py, csv.py, email_.py   # one engine each, real document order verified per-engine
 ```
 
-`Engine` is a class hierarchy on purpose, unlike `inspectors/`: multiple
-engines can exist per format with genuinely different capabilities (see
-"Using the extraction engines" above), and engines may carry real config
-later (API keys, model choice, confidence thresholds) - a shared interface
-enforced structurally earns its keep here in a way it wouldn't for a
-handful of stateless functions.
+`Engine` is a full ABC - `_extract()` is wrapped by shared format-check /
+timing / "never raises" machinery (see "Using the extraction engines"
+above), because multiple engines can genuinely exist per format (PDF has
+two) and may carry real config later (API keys, model choice, confidence
+thresholds). `Inspector` (`inspectors/base.py`) is intentionally lighter: a
+structural `Protocol`, not an ABC - every format has exactly one inspector
+today, with no config and no shared wrapper to enforce, so a plain
+one-method class is enough. Promote it to a full ABC if that ever changes,
+not before.
 
-### Planned: XLS/CSV/email extraction, OCR/VLM routing (not yet implemented)
+### Planned: OCR/VLM routing (not yet implemented)
 
 ```
 dokuma/
-  engines/
-    xls.py, csv.py, email.py    # extraction engines for the remaining inspect()-only formats
   ocr/
-    route.py                      # decides which regions need OCR/VLM, and which backend
-  merge.py                    # stitches multi-engine results back into one document, reading order preserved
+    route.py     # decides which regions need OCR/VLM, and which backend
+  merge.py      # stitches multi-engine results back into one document, reading order preserved
 ```
 
 Current extraction covers text/table/heading regions; images/figures aren't
-tagged for OCR/VLM handling yet, and legacy XLS/CSV/email still only have
-`inspect()`, not `extract()`.
+tagged for OCR/VLM handling yet. `EmailEngine` is deliberately scoped down
+for v1 - body text only, no attachment listing or recursive extraction into
+attachments.
 
 ## License
 
