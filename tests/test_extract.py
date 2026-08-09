@@ -60,7 +60,33 @@ def test_extract_markdown_dispatches_to_default_engine(sample_markdown: Path) ->
     assert "Dokuma Test Doc" in result.text
 
 
-def test_extract_unsupported_format_raises(sample_csv: Path) -> None:
-    # csv inspection exists but no extraction engine is wired up yet.
+def test_extract_xls_dispatches_to_default_engine(sample_xls: Path) -> None:
+    result = dokuma.extract(sample_xls)
+
+    assert result.engine == "xlrd"
+    assert result.error is None
+    assert any("widgets" in table for table in result.tables)
+
+
+def test_extract_csv_dispatches_to_default_engine(sample_csv: Path) -> None:
+    result = dokuma.extract(sample_csv)
+
+    assert result.engine == "csv"
+    assert result.error is None
+    assert any("widgets" in table for table in result.tables)
+
+
+def test_extract_email_dispatches_to_default_engine(sample_eml: Path) -> None:
+    result = dokuma.extract(sample_eml)
+
+    assert result.engine == "email"
+    assert result.error is None
+    assert "body of the test email" in result.text
+
+
+def test_extract_unsupported_format_raises(tmp_path: Path) -> None:
+    path = tmp_path / "sample.exe"
+    path.write_text("irrelevant")
+
     with pytest.raises(UnsupportedFormatError):
-        dokuma.extract(sample_csv)
+        dokuma.extract(path)

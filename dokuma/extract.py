@@ -12,10 +12,13 @@ from pathlib import Path
 from dokuma.config import ExtractConfig
 from dokuma.detect import UnsupportedFormatError, detect_format
 from dokuma.engines.base import Engine
+from dokuma.engines.csv import CsvEngine
 from dokuma.engines.docx import DocxEngine
+from dokuma.engines.email_ import EmailEngine
 from dokuma.engines.html import HtmlEngine
 from dokuma.engines.markdown import MarkdownEngine
 from dokuma.engines.pdf_inspector import PdfInspectorEngine
+from dokuma.engines.xls import XlsEngine
 from dokuma.engines.xlsx import XlsxEngine
 from dokuma.types import ExtractionResult
 
@@ -23,8 +26,11 @@ _DEFAULT_ENGINES: dict[str, type[Engine]] = {
     "pdf": PdfInspectorEngine,
     "docx": DocxEngine,
     "xlsx": XlsxEngine,
+    "xls": XlsEngine,
     "html": HtmlEngine,
     "markdown": MarkdownEngine,
+    "csv": CsvEngine,
+    "email": EmailEngine,
 }
 
 
