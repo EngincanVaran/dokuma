@@ -3,6 +3,16 @@
 `.tsv` forces a tab delimiter rather than relying on sniffing (which is
 fine for real CSVs but not worth trusting to correctly infer tabs on a
 file already telling us via its extension).
+
+`format` is always `"csv"`, even for a `.tsv` file - matches
+`detect_format()`, `CsvEngine.format`, and `extract()`'s dispatch, all of
+which treat `.tsv` as a delimiter variant of `"csv"`, not a separate
+format. This inspector used to report `format="tsv"` here, disagreeing
+with every other layer for the identical file - a real bug, found via
+real-document testing, fixed by matching the rest of the codebase rather
+than the other way around (see `CsvEngine`'s docstring for why `.csv`/
+`.tsv` share one format bucket). Use `metadata["delimiter"]` to tell them
+apart, not `format`.
 """
 
 from __future__ import annotations
@@ -40,9 +50,9 @@ class CsvInspector:
 
         return DocumentInfo(
             path=path,
-            format="tsv" if is_tsv else "csv",
+            format="csv",
             size_bytes=path.stat().st_size,
             row_count=len(rows),
             column_count=column_count,
-            metadata={"delimiter": repr(delimiter), "has_header": str(has_header)},
+            metadata={"delimiter": delimiter, "has_header": str(has_header)},
         )

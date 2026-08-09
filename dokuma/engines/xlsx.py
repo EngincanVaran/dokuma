@@ -9,10 +9,23 @@ inspectors/xlsx.py uses for not reporting `page_count`). `bbox` stays
 cells. Empty sheets are skipped: verified directly that a sheet with no
 data returns an empty `iter_rows()` in read-only mode, so "has any rows at
 all" is a sufficient, cheap check.
+
+Real bug, found via real-document testing: **openpyxl always returns
+`datetime.datetime` for a date-backed cell, even one written as a plain
+`datetime.date`** - confirmed directly, `sheet["A1"] = datetime.date(...)`
+reads back as `datetime.datetime(..., 0, 0)`. Rendered with plain `str()`,
+that's a spurious `00:00:00` on every date cell, not just genuine
+midnight timestamps. Fixed with a heuristic, not a guarantee: a
+`datetime.datetime` whose time component is exactly midnight renders as
+date-only; a real midnight timestamp (rare in spreadsheet data, common
+case is date-only cells) would render the same way and lose its time -
+an accepted, documented tradeoff, not something openpyxl gives us a way
+to distinguish.
 """
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +33,18 @@ from dokuma.engines.base import Engine
 from dokuma.types import ExtractionResult, Region
 
 
+def _cell_str(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime.datetime) and value.time() == datetime.time.min:
+        return value.date().isoformat()
+    return str(value)
+
+
 def _rows_to_html(rows: list[Any]) -> str:
     rows_html = []
     for row in rows:
-        cells = "".join(f"<td>{cell.value if cell.value is not None else ''}</td>" for cell in row)
+        cells = "".join(f"<td>{_cell_str(cell.value)}</td>" for cell in row)
         rows_html.append(f"<tr>{cells}</tr>")
     return "<table>" + "".join(rows_html) + "</table>"
 

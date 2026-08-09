@@ -53,3 +53,40 @@ def test_xlsx_engine_rejects_non_xlsx_file(dense_text_pdf: Path) -> None:
     assert result.error is not None
     assert "xlsx" in result.error
     assert "pdf" in result.error
+
+
+def test_xlsx_engine_date_only_cell_has_no_spurious_time(tmp_path: Path) -> None:
+    # Real bug, fixed: openpyxl always returns datetime.datetime, even for
+    # a cell written as datetime.date - rendering it with plain str() put
+    # a spurious "00:00:00" on every date cell, found via real-document
+    # testing.
+    import datetime
+
+    import openpyxl
+
+    workbook = openpyxl.Workbook()
+    workbook.active["A1"] = datetime.date(2026, 1, 12)
+    path = tmp_path / "dates.xlsx"
+    workbook.save(str(path))
+
+    result = XlsxEngine().extract(path)
+
+    assert "2026-01-12" in result.tables[0]
+    assert "00:00:00" not in result.tables[0]
+
+
+def test_xlsx_engine_real_timestamp_keeps_its_time(tmp_path: Path) -> None:
+    # A cell with a genuine non-midnight time is left alone - only the
+    # midnight-heuristic case gets the date-only treatment.
+    import datetime
+
+    import openpyxl
+
+    workbook = openpyxl.Workbook()
+    workbook.active["A1"] = datetime.datetime(2026, 1, 12, 14, 30, 0)
+    path = tmp_path / "timestamps.xlsx"
+    workbook.save(str(path))
+
+    result = XlsxEngine().extract(path)
+
+    assert "14:30:00" in result.tables[0]

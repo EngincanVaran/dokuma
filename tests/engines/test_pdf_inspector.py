@@ -32,6 +32,33 @@ def test_split_into_regions_empty_markdown_gives_no_regions() -> None:
     assert split_into_regions("   \n\n  ") == []
 
 
+def test_split_into_regions_extracts_real_heading_regions() -> None:
+    # Real bug, fixed: this used to leave "#"/"##" markdown syntax
+    # embedded verbatim inside a single text region instead of parsing it
+    # into real category="heading" regions - inconsistent with every
+    # other multi-format engine, found via real-document testing.
+    markdown = "# Report Title\n\nIntro paragraph.\n\n## Section One\n\nMore text."
+
+    regions = split_into_regions(markdown)
+
+    assert [r.category for r in regions] == ["heading", "text", "heading", "text"]
+    assert [r.level for r in regions] == [1, None, 2, None]
+    assert regions[0].content == "Report Title"
+    assert regions[1].content == "Intro paragraph."
+    assert regions[2].content == "Section One"
+    assert regions[3].content == "More text."
+    assert "#" not in regions[0].content
+    assert [r.order for r in regions] == [0, 1, 2, 3]
+
+
+def test_split_into_regions_headings_interleave_with_tables() -> None:
+    markdown = "# Title\n\nIntro.\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n## Section\n\nClosing."
+
+    regions = split_into_regions(markdown)
+
+    assert [r.category for r in regions] == ["heading", "text", "table", "heading", "text"]
+
+
 def test_pdf_inspector_engine_extracts_real_text(dense_text_pdf: Path) -> None:
     # dense_text_pdf has no table (see conftest.py) - table-splitting itself
     # is covered by the pure split_into_regions tests above. This exercises
