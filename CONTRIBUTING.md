@@ -27,5 +27,13 @@ after setup.
 - Python >=3.11, managed with `uv` (`pyproject.toml` + `uv.lock`).
 - `ruff` for lint + format (line length 100, double quotes).
 - `mypy --strict` - all public functions need type hints.
-- No `print()` in library code - not wired up yet, but plan to use
-  `logging` (e.g. `loguru`) once there's real code.
+- No `print()` in library code (enforced by ruff's `T20`), and no
+  `logging` either - `Engine.extract()` returns failures as
+  `ExtractionResult.error` data rather than logging or raising, so
+  library code has never needed a logger. Reconsider only if that design
+  actually changes, not preemptively.
+- `examples/*.py` are exempt from the `print()` rule (`per-file-ignores`
+  in `pyproject.toml`) - printing output is the entire point of a demo
+  script. Every example is self-contained (generates its own sample
+  documents via `examples/_generate_samples.py`) - see
+  [`examples/README.md`](examples/README.md).
