@@ -28,9 +28,10 @@ extraction.
 **`extract()` (structured extraction: text/table/heading/image regions) is
 implemented for all 10 formats** - PDF has two swappable engines
 (pdf-inspector, pdfplumber), the rest have one each - see "Quick start"
-below and [`examples/`](examples/). The full per-region OCR/VLM-tagging
-vision is not built yet - see "Design" for current vs. planned
-architecture.
+below and [`examples/`](examples/). Per-region OCR/VLM *tagging*
+(`Region.needs_ocr`) is real for PDF; actually dispatching a flagged
+region to an OCR/VLM backend is still just a vision - see "Design" for
+current vs. planned architecture.
 
 **XLSB and `.msg` are unverified against real files** (see "Supported
 formats" below) - no real sample file was available while building
@@ -120,10 +121,14 @@ A few things worth knowing before you dig in:
   back as `result.error`, so looping over many files never aborts on one
   bad one. (The top-level `dokuma.extract()`/`inspect()` *do* raise, which
   is correct for a single one-off call.)
-- **`ExtractConfig`** has two knobs: `table_format`
-  (`"html"`/`"markdown"`/`"xml"`, controls what `.tables` returns) and
+- **`ExtractConfig`** has three knobs: `table_format`
+  (`"html"`/`"markdown"`/`"xml"`, controls what `.tables` returns),
   `extract_images` (skip real per-engine image-extraction cost when you
-  don't need it).
+  don't need it), and `flag_needs_ocr` (PDF-only, via `PdfPlumberEngine` -
+  sets `region.needs_ocr=True` on regions from pages pdf-inspector's
+  classifier flagged as unreliable to read natively; fires more broadly
+  than "this text is garbled" - a page with plenty of real text and an
+  embedded image gets flagged too, confirmed directly).
 
 See [`examples/`](examples/) for runnable scripts covering all of the
 above in depth - engine comparison, image extraction, config options, and
@@ -198,7 +203,7 @@ changes.
 ```
 dokuma/
   types.py                # Region, ExtractionResult - the shared result shape
-  config.py                 # ExtractConfig - table_format, extract_images so far
+  config.py                 # ExtractConfig - table_format, extract_images, flag_needs_ocr so far
   tables.py                   # HTML <-> markdown/xml/dataframe table conversion
   extract.py                    # extract(path, engine=None, config=None) -> ExtractionResult
   engines/
@@ -220,19 +225,28 @@ today, with no config and no shared wrapper to enforce, so a plain
 one-method class is enough. Promote it to a full ABC if that ever changes,
 not before.
 
-### Planned: OCR/VLM routing (not yet implemented)
+### Partially implemented: OCR/VLM *tagging* (routing/dispatch still planned)
 
 ```
 dokuma/
   ocr/
-    route.py     # decides which regions need OCR/VLM, and which backend
+    route.py     # decides which backend handles a flagged region, dispatches to it
   merge.py      # stitches multi-engine results back into one document, reading order preserved
 ```
 
-Current extraction covers text/table/heading/image regions, with no
-OCR/VLM analysis of what's actually *in* an image region yet - that's the
-gap this section is about. `PdfPlumberEngine`, `DocxEngine`, and
-`XlsxEngine` produce image regions today (see
+The vision has two halves, and only the first is real: **tagging** which
+regions need OCR/VLM handling (`Region.needs_ocr`, `PdfPlumberEngine`
+only - see "Quick start" above), and **dispatching** flagged regions to
+an actual backend and merging the result back in (not built - dokuma
+hands you the flag and, for images, the raw bytes; you still pick and
+call your own OCR engine or vision-LLM API). Deliberately scoped this
+way: picking a backend means real cost/privacy/dependency tradeoffs
+(local OCR vs. a hosted vision-LLM call) that belong to the caller, not
+baked into the library.
+
+Image regions are the other half of "what needs OCR/VLM," and are
+further along: `PdfPlumberEngine`, `DocxEngine`, and `XlsxEngine`
+produce image regions today (see
 [`examples/04_images.py`](examples/04_images.py) for what each one
 actually gives you back); `PdfInspectorEngine` and HTML/Markdown/XLS/CSV/
 email still don't touch embedded pictures at all. `EmailEngine` is

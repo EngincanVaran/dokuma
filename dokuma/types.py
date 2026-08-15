@@ -108,7 +108,16 @@ class Region:
     (DocxEngine, XlsxEngine) return the original embedded file's bytes
     as-is, whatever format that happened to be - check the producing
     engine's docstring, and don't assume PNG. `content` stays `""` for
-    image regions; there's no text to put there."""
+    image regions; there's no text to put there.
+
+    `needs_ocr` flags a region whose *source page* an engine's underlying
+    library independently classified as unreliable to read natively (not
+    a guess dokuma invents - see the producing engine's docstring for what
+    signal it actually reuses, and `ExtractConfig.flag_needs_ocr` to turn
+    it off). Only ever `True` today from `PdfPlumberEngine` - every other
+    engine leaves it at the default, honestly, not because the flag
+    doesn't apply but because no engine has a validated signal to reuse
+    for its format yet."""
 
     category: str  # "text" | "table" | "heading" | "image" (more as engines gain support)
     content: str  # plain text, or HTML for tables; "" for images
@@ -118,6 +127,7 @@ class Region:
     level: int | None = None
     image_bytes: bytes | None = None
     image_format: str | None = None
+    needs_ocr: bool = False
 
     def save_image(self, path: str | Path) -> None:
         """Writes `image_bytes` to disk as-is (whatever `image_format`

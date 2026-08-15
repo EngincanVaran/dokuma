@@ -5,6 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from dokuma.config import ExtractConfig
 from dokuma.engines.pdf_plumber import PdfPlumberEngine
 
 
@@ -134,3 +135,39 @@ def test_pdf_plumber_engine_images_property_and_save_image(image_pdf: Path, tmp_
 def test_pdf_plumber_engine_to_markdown_uses_image_placeholder(image_pdf: Path) -> None:
     result = PdfPlumberEngine().extract(image_pdf)
     assert "[image]" in result.to_markdown()
+
+
+def test_pdf_plumber_engine_flags_needs_ocr_on_pages_with_images(image_pdf: Path) -> None:
+    # Verified empirically before writing this (see the module docstring):
+    # pdf-inspector's detect_pdf() flags a page as needing OCR whenever it
+    # has a substantial embedded image, even with plenty of real
+    # surrounding text - image_pdf (real prose before/after a picture) is
+    # a real, confirmed trigger for this, not a synthetic edge case.
+    result = PdfPlumberEngine().extract(image_pdf)
+
+    assert result.error is None
+    assert len(result.regions) == 3
+    assert all(r.needs_ocr for r in result.regions)
+
+
+def test_pdf_plumber_engine_does_not_flag_clean_text_pages(dense_text_pdf: Path) -> None:
+    result = PdfPlumberEngine().extract(dense_text_pdf)
+
+    assert result.error is None
+    assert len(result.regions) == 1
+    assert result.regions[0].needs_ocr is False
+
+
+def test_pdf_plumber_engine_does_not_flag_table_only_pages(table_pdf: Path) -> None:
+    result = PdfPlumberEngine().extract(table_pdf)
+
+    assert result.error is None
+    assert all(not r.needs_ocr for r in result.regions)
+
+
+def test_pdf_plumber_engine_flag_needs_ocr_false_disables_flagging(image_pdf: Path) -> None:
+    result = PdfPlumberEngine().extract(image_pdf, config=ExtractConfig(flag_needs_ocr=False))
+
+    assert result.error is None
+    assert len(result.regions) == 3
+    assert all(not r.needs_ocr for r in result.regions)

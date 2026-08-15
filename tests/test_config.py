@@ -16,6 +16,10 @@ def test_extract_config_defaults_extract_images_to_true() -> None:
     assert ExtractConfig().extract_images is True
 
 
+def test_extract_config_defaults_flag_needs_ocr_to_true() -> None:
+    assert ExtractConfig().flag_needs_ocr is True
+
+
 def test_extract_config_rejects_unknown_table_format() -> None:
     with pytest.raises(ValueError, match="not one of"):
         ExtractConfig(table_format="yaml")

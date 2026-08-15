@@ -41,9 +41,10 @@ class Engine(ABC):
         runs, since regions are always built as the canonical
         HTML-for-tables shape regardless of what a caller eventually wants
         to read them as - `_extract()` never needs to know about those.
-        Knobs that change what extraction *work* happens (`extract_images`)
-        get passed into `_extract()` itself, so an engine can skip real,
-        avoidable cost rather than doing the work and throwing it away.
+        Knobs that change what extraction *work* happens (`extract_images`,
+        `flag_needs_ocr`) get passed into `_extract()` itself, so an engine
+        can skip real, avoidable cost rather than doing the work and
+        throwing it away.
         """
         start = time.perf_counter()
         path = Path(path)

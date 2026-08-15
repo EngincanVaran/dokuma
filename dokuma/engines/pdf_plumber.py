@@ -34,6 +34,23 @@ picture", not intended as bit-exact original-file recovery.
 `ExtractConfig(extract_images=False)` skips `page.images` entirely, not
 just the resulting regions - real savings, since rendering each crop is
 the expensive part of this engine's image support, not free bookkeeping.
+
+`needs_ocr` reuses `pdf_inspector.detect_pdf()`'s `pages_needing_ocr` -
+the exact same signal `inspect()` already surfaces via
+`DocumentInfo.needs_ocr()`, cross-referenced against this engine's real
+per-region page numbers rather than inventing a new per-region confidence
+heuristic. This is the only engine that can do this - it's the only one
+with real page numbers to cross-reference against. Verified empirically,
+not assumed: a page's *text density* isn't what triggers this - a page
+with substantial real text and an embedded image still gets flagged
+`image_based`/needs-OCR (confirmed directly against this project's own
+`image_pdf`/`table_and_image_pdf` test fixtures, both dense with real
+prose). So `needs_ocr=True` fires more broadly than "this text is
+unreliable" - treat it as "pdf-inspector's classifier wasn't confident
+about this page" rather than a precise garbled-text signal. Requires a
+second full `detect_pdf()` pass over the file - real, avoidable cost -
+so `ExtractConfig(flag_needs_ocr=False)` skips it entirely, same pattern
+as `extract_images`.
 """
 
 from __future__ import annotations
@@ -71,10 +88,18 @@ class PdfPlumberEngine(Engine):
     def _extract(self, path: Path, config: ExtractConfig) -> ExtractionResult:
         import pdfplumber
 
+        pages_needing_ocr: set[int] = set()
+        if config.flag_needs_ocr:
+            import pdf_inspector
+
+            pages_needing_ocr = set(pdf_inspector.detect_pdf(str(path)).pages_needing_ocr)
+
         regions: list[Region] = []
         order = 0
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, start=1):
+                needs_ocr = page_num in pages_needing_ocr
+
                 blocks: list[tuple[str, tuple[float, float, float, float], Any]] = [
                     ("table", t.bbox, t) for t in page.find_tables()
                 ]
@@ -98,6 +123,7 @@ class PdfPlumberEngine(Engine):
                                     bbox=(0.0, cursor, float(page.width), float(top)),
                                     page=page_num,
                                     order=order,
+                                    needs_ocr=needs_ocr,
                                 )
                             )
                             order += 1
@@ -110,6 +136,7 @@ class PdfPlumberEngine(Engine):
                                 bbox=(float(x0), float(top), float(x1), float(bottom)),
                                 page=page_num,
                                 order=order,
+                                needs_ocr=needs_ocr,
                             )
                         )
                     else:
@@ -122,6 +149,7 @@ class PdfPlumberEngine(Engine):
                                 order=order,
                                 image_bytes=_render_image(page, (x0, top, x1, bottom)),
                                 image_format="png",
+                                needs_ocr=needs_ocr,
                             )
                         )
                     order += 1
@@ -137,6 +165,7 @@ class PdfPlumberEngine(Engine):
                                 bbox=(0.0, cursor, float(page.width), float(page.height)),
                                 page=page_num,
                                 order=order,
+                                needs_ocr=needs_ocr,
                             )
                         )
                         order += 1
