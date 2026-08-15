@@ -33,9 +33,16 @@ xlsx = [
     "openpyxl>=3.1",
     "xlrd>=2.0",  # legacy .xls only - xlrd 2.0 dropped .xlsx support
 ]
+xlsb = ["pyxlsb>=1.0.10"]  # Excel Binary Workbook - distinct from both xlsx and legacy xls
+# msg is a much heavier extra than every other one here - extract-msg
+# pulls in ~15 transitive dependencies (oletools, msoffcrypto-tool,
+# even a Tkinter GUI library it doesn't need for headless use). It's the
+# only mature pure-Python .msg reader; no lighter option exists. A
+# deliberate, documented tradeoff - not an oversight.
+msg = ["extract-msg>=0.56.1"]
 # html/markdown/csv/email need no extra - stdlib only.
 pandas = ["pandas>=2.0"]  # only for ExtractionResult.tables_as_dataframes() / table_to_dataframe()
-all = ["dokuma[pdf,docx,xlsx]"]
+all = ["dokuma[pdf,docx,xlsx,xlsb,msg]"]
 
 [project.urls]
 Homepage = "https://github.com/engincanvaran/dokuma"
@@ -89,7 +96,7 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
-module = ["openpyxl.*", "xlrd.*", "xlwt.*"]
+module = ["openpyxl.*", "xlrd.*", "xlwt.*", "pyxlsb.*", "extract_msg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

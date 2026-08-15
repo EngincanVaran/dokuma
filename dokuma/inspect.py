@@ -15,8 +15,10 @@ from dokuma.inspectors.docx import DocxInspector
 from dokuma.inspectors.email_ import EmailInspector
 from dokuma.inspectors.html import HtmlInspector
 from dokuma.inspectors.markdown import MarkdownInspector
+from dokuma.inspectors.msg import MsgInspector
 from dokuma.inspectors.pdf import PdfInspector
 from dokuma.inspectors.xls import XlsInspector
+from dokuma.inspectors.xlsb import XlsbInspector
 from dokuma.inspectors.xlsx import XlsxInspector
 from dokuma.types import DocumentInfo
 
@@ -25,10 +27,12 @@ _INSPECTORS: dict[str, Inspector] = {
     "docx": DocxInspector(),
     "xlsx": XlsxInspector(),
     "xls": XlsInspector(),
+    "xlsb": XlsbInspector(),
     "html": HtmlInspector(),
     "markdown": MarkdownInspector(),
     "csv": CsvInspector(),
     "email": EmailInspector(),
+    "msg": MsgInspector(),
 }
 
 

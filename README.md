@@ -22,15 +22,21 @@ built yet - see "Design" below for what's real today.
 ## Status
 
 **`inspect()` is implemented and tested** - fast metadata (page count, size,
-format-specific structure) across 8 formats, without doing full content
+format-specific structure) across 10 formats, without doing full content
 extraction.
 
 **`extract()` (structured extraction: text/table/heading/image regions) is
-implemented for all 8 formats** - PDF has two swappable engines
+implemented for all 10 formats** - PDF has two swappable engines
 (pdf-inspector, pdfplumber), the rest have one each - see "Quick start"
 below and [`examples/`](examples/). The full per-region OCR/VLM-tagging
 vision is not built yet - see "Design" for current vs. planned
 architecture.
+
+**XLSB and `.msg` are unverified against real files** (see "Supported
+formats" below) - no real sample file was available while building
+them, so unlike every other format they're implemented directly against
+library source/docs rather than fixture-tested. Error-handling is
+verified; real-content parsing correctness isn't yet.
 
 ## Supported formats
 
@@ -40,10 +46,12 @@ architecture.
 | DOCX | [python-docx](https://github.com/python-openxml/python-docx) | paragraph/table/heading counts, word count, Word's cached page count* |
 | XLSX | [openpyxl](https://openpyxl.readthedocs.io/) | sheet count, sheet names, per-sheet dimensions |
 | XLS (legacy) | [xlrd](https://github.com/python-excel/xlrd) | same as XLSX, minus workbook metadata (see below) |
+| XLSB† | [pyxlsb](https://github.com/willtrnr/pyxlsb) | sheet count, sheet names, per-sheet dimensions |
 | HTML | stdlib `html.parser` | title, heading count, word count |
 | Markdown | stdlib only | heading count, word count |
 | CSV / TSV | stdlib `csv` | row/column count, delimiter, header detection |
 | Email (`.eml`) | stdlib `email` | subject, word count, attachment count, From/To/Date |
+| Outlook (`.msg`)† | [extract-msg](https://github.com/TeamMsgExtractor/msg-extractor) | subject, word count, attachment count, From/To/Date |
 
 \* Word's cached page count is only trustworthy for files actually saved by
 real Microsoft Word - files from python-docx, LibreOffice, etc. carry a
@@ -51,14 +59,22 @@ stale template placeholder instead (confirmed by testing against
 python-docx's own output). `dokuma` reports it as-is rather than guessing;
 see `dokuma/inspectors/docx.py` for the full explanation.
 
+† **XLSB and `.msg` are implemented but not fixture-tested against real
+files** - no pure-Python library writes either format, so unlike every
+other format here there was no way to generate a genuine sample file to
+verify against (only manually confirmed error-handling on deliberately
+bad input). Treat these two with more caution than the rest until real
+test coverage exists - see `dokuma/inspectors/xlsb.py` /
+`dokuma/inspectors/msg.py` for the full explanation. `.msg` also needs
+`dokuma[msg]`, a much heavier install than any other extra here (see
+"Installation" below).
+
 **Known, deliberate gaps:**
 - Legacy `.doc` (pre-2007 binary Word) - no good pure-Python reader exists;
   the honest options all need an external tool (LibreOffice) or a heavy
   dependency. Not worth a fragile implementation.
-- `.xls` workbook metadata (title/author) - xlrd doesn't parse the OLE
-  `SummaryInformation` stream `.xls` stores that in.
-- Outlook's binary `.msg` format - needs a separate library entirely from
-  `.eml`'s stdlib `email` support.
+- `.xls`/`.xlsb` workbook metadata (title/author) - neither xlrd nor
+  pyxlsb parses it.
 
 ## Installation
 
@@ -68,7 +84,12 @@ pip install "dokuma[pdf,docx,xlsx]"    # pick what you need
 pip install "dokuma[all]"              # everything
 ```
 
-HTML, Markdown, CSV/TSV, and email need no extra - stdlib only.
+HTML, Markdown, CSV/TSV, and email (`.eml`) need no extra - stdlib only.
+`pip install "dokuma[xlsb]"` adds Excel Binary Workbook support (light -
+one dependency). `pip install "dokuma[msg]"` adds Outlook `.msg` support -
+**much heavier** than every other extra here (~15 transitive
+dependencies, including tooling unrelated to basic parsing); a deliberate
+tradeoff, not an oversight - see the XLSB/`.msg` footnote above.
 `pip install "dokuma[pandas]"` adds `ExtractionResult.tables_as_dataframes()`
 - kept separate from the format extras above since it's an output-conversion
 nicety, not document-format support.
@@ -163,7 +184,7 @@ dokuma/
   inspect.py                # inspect(path) -> DocumentInfo, dispatches by format
   inspectors/
     base.py                  # Inspector - a structural Protocol, not an ABC (see below)
-    pdf.py, docx.py, xlsx.py, xls.py, html.py, markdown.py, csv.py, email_.py
+    pdf.py, docx.py, xlsx.py, xls.py, xlsb.py, html.py, markdown.py, csv.py, email_.py, msg.py
 ```
 
 One small class per format (`PdfInspector`, `DocxInspector`, ...), each with
@@ -185,7 +206,7 @@ dokuma/
     pdf_inspector.py                # PdfInspectorEngine - fast, no bbox/page data
     pdf_plumber.py                    # PdfPlumberEngine - real bbox/page data, image regions
     docx.py, xlsx.py                  # also produce image regions (original embedded bytes)
-    xls.py, html.py, markdown.py, csv.py, email_.py   # one engine each, real document order verified per-engine
+    xls.py, xlsb.py, html.py, markdown.py, csv.py, email_.py, msg.py   # one engine each
 ```
 
 `Engine` is a full ABC - `_extract()` is wrapped by shared format-check /

@@ -17,8 +17,10 @@ from dokuma.engines.docx import DocxEngine
 from dokuma.engines.email_ import EmailEngine
 from dokuma.engines.html import HtmlEngine
 from dokuma.engines.markdown import MarkdownEngine
+from dokuma.engines.msg import MsgEngine
 from dokuma.engines.pdf_inspector import PdfInspectorEngine
 from dokuma.engines.xls import XlsEngine
+from dokuma.engines.xlsb import XlsbEngine
 from dokuma.engines.xlsx import XlsxEngine
 from dokuma.types import ExtractionResult
 
@@ -27,10 +29,12 @@ _DEFAULT_ENGINES: dict[str, type[Engine]] = {
     "docx": DocxEngine,
     "xlsx": XlsxEngine,
     "xls": XlsEngine,
+    "xlsb": XlsbEngine,
     "html": HtmlEngine,
     "markdown": MarkdownEngine,
     "csv": CsvEngine,
     "email": EmailEngine,
+    "msg": MsgEngine,
 }
 
 
