@@ -12,6 +12,22 @@ reliable per-paragraph page number without actually rendering the document
 `inspectors/docx.py`'s cached page count). `bbox`/`page` stay `None` on
 every region, same honesty as PdfInspectorEngine.
 
+Re-confirmed 2026-08-15, not just left unexamined: this genuinely holds
+for text/heading/table regions and inline images - none of those carry
+any position data in the file. One real, verified exception: a *floating*
+(anchored, not inline) image's `<wp:anchor>` XML does carry an exact
+`positionH`/`positionV` offset in EMU (914400/inch, the same unit
+`PdfPlumberEngine`'s bbox already uses in points via 12700 EMU = 1pt) -
+not a guess, an authoritative value straight from the file. Confirmed
+directly by hand-constructing an anchor element and reading it back.
+Deliberately still not populated: `_paragraph_images()` already picks up
+an anchored image's bytes today (it doesn't distinguish anchor vs.
+inline), but a real implementation needs to handle several possible
+`relativeFrom` reference frames (page, margin, paragraph, column, ...),
+and anchored images are uncommon in documents people extract text/data
+from - not worth the scope for the payoff. Revisit if that tradeoff ever
+changes, not preemptively.
+
 Consecutive paragraphs are batched into one "text" region (split at
 headings/tables), matching the PDF engines' "one region per contiguous
 chunk" pattern rather than one region per paragraph. Headings get their own
